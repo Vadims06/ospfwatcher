@@ -1,6 +1,6 @@
 from collections import defaultdict
 import ipaddress
-from typing import Set, Union
+from typing import Optional, Set, Union, List, Annotated
 
 class General:
     def add_stub(self, obj, newStubNetwork, metric) -> None:
@@ -14,7 +14,11 @@ class LSU:
         self.LSA_ll = []
     def add_lsa(self, lsa_obj) -> None:
         self.LSA_ll.append(lsa_obj)
-    
+
+RID = Annotated[str, "OSPF Router ID, i.e. 10.1.1.1"]
+IPAddress = Annotated[str, "i.e. 10.1.1.1"]
+NETWORK = Annotated[str, "i.e. 172.16.0.0/24"]
+Cost = Annotated[int, 10]
 
 class LSA:
     def __init__(self, lsu_obj) -> None:
@@ -29,13 +33,13 @@ class LSA:
         # add itself to LSU
         lsu_obj.add_lsa(self)
         # Keep p2p neighbors (RID) map
-        self.p2pOwnRidToOwnIpAddressDdDdMap = defaultdict(dict) # {'10.100.0.1': {'192.168.100.4': 10, '192.168.101.4': 20}}. '10.100.0.1' has two interfaces to p2p neighbors via own interfaces '192.168.100.4' and '192.168.101.4' with cost 10 and 20 respectivelly
+        self.p2pOwnRidToOwnIpAddressDdDdMap: dict[RID, dict[IPAddress, Cost]] = defaultdict(dict) # {'10.100.0.1': {'192.168.100.4': 10, '192.168.101.4': 20}}. '10.100.0.1' has two interfaces to p2p neighbors via own interfaces '192.168.100.4' and '192.168.101.4' with cost 10 and 20 respectivelly
         # while we are saving own IP on p2p interface - we have to save mapping with our own IP address and neighbor OSPF RID on remote site
-        self.p2pOwnIpAddressWithRemoteNeighborRidMap = dict() # {'192.168.100.4': '10.100.0.2', '192.168.101.4': '10.100.0.3'} via own interface with IP 192.168.100.4 - OSPF neighbor with RID 10.100.0.2
+        self.p2pOwnIpAddressWithRemoteNeighborRidMap: dict[IPAddress, RID] = dict() # {'192.168.100.4': '10.100.0.2', '192.168.101.4': '10.100.0.3'} via own interface with IP 192.168.100.4 - OSPF neighbor with RID 10.100.0.2
         # Stub
         self.OwnRidToStubNetworkWithMaskToMetricMap = defaultdict(dict) # {'10.100.0.1': {'192.168.100.0/24': 10}}
         # Metric to DR IP address
-        self.drIpAddressToMetricMap = {} # 10.1.34.4 = IP address of DR, 1000 - metric {'10.1.34.4': 1000}
+        self.drIpAddressToMetricMap: dict[IPAddress, Cost] = {} # 10.1.34.4 = IP address of DR, 1000 - metric {'10.1.34.4': 1000}
         # LSA2 DR and his neighbors
         self.DrIpAddressToNeighborsRidSetMap = {} # 10.1.34.4 = IP address of DR, it's set is his neighbors RID {'10.1.34.4': {'10.1.1.3', '10.1.1.4'}, '10.1.23.3': {'10.1.1.3', '10.1.1.2'}}
 
@@ -49,8 +53,42 @@ class LSA:
     def add_stub(self, stub_obj) -> None:
         self.OwnRidToStubNetworkWithMaskToMetricMap[stub_obj.adv_router_id].setdefault(stub_obj.network, stub_obj.metric)
 
-    def metricToDrIpAddress_update(self, metric) -> None:
-        self.drIpAddressToMetricMap[self.link_state_id] = metric
+    def __getInterfaceIpToDr(self, graph_obj, own_rid, dr_ip_address) -> Optional[str]:
+        """
+        Iterate over all neighbors of DR and return of router's interface IP to the DR
+        """
+        for own_ip, _dr_ip_address in graph_obj.OwnRidToOwnIpToDrIpAddressMap.get(own_rid, {}).items():
+            if _dr_ip_address == dr_ip_address:
+                return own_ip
+
+    def isNewMetricOrNewDr_check(self, tmp_router_lsa, graph_obj) -> None:
+        """
+        If new DR on shared segment is detected - copy a set of all old DR's neighbors to the new one. Additionally, save which RID via which his local interface see IP address of DR
+        Check if metric to DR was changed
+        """
+        # check probably LSA announces new IP address of DR ( when DR is down)
+        lsa_metric = tmp_router_lsa['metric']
+        lsa_dr_ip_address = tmp_router_lsa['link_id']
+        lsa_own_ip = tmp_router_lsa['link_data']
+        saved_dr_ip_address = graph_obj.OwnRidToOwnIpToDrIpAddressMap.get(self.adv_router_id, {}).get(lsa_own_ip, '')
+        if saved_dr_ip_address and lsa_dr_ip_address != saved_dr_ip_address:
+            # 1. Take all neighbors of old DR and associate with new DR
+            for neighborsRid in graph_obj.DrIpAddressToNeighborsRidSetMap[saved_dr_ip_address]:
+                if neighborsRid != self.adv_router_id:
+                    lsa_own_ip = self.__getInterfaceIpToDr(graph_obj, neighborsRid, saved_dr_ip_address) # this method uses `for` but it iterate over only DR neighbors 
+                if lsa_own_ip:
+                    graph_obj.OwnRidToOwnIpToDrIpAddressMap.setdefault(neighborsRid, {}).update({lsa_own_ip: lsa_dr_ip_address})
+            # 2. map all neighbors from old DR to the new one
+            graph_obj.DrIpAddressToNeighborsRidSetMap[lsa_dr_ip_address] = graph_obj.DrIpAddressToNeighborsRidSetMap.get(saved_dr_ip_address, [])
+            # empty neighbor list of old DR
+            graph_obj.DrIpAddressToNeighborsRidSetMap[saved_dr_ip_address] = []
+
+            # 3. copy DR's metric
+            saved_metric = graph_obj.drIpAddressToMetricMap.get(saved_dr_ip_address, 0)
+            graph_obj.drIpAddressToMetricMap[lsa_dr_ip_address] = saved_metric
+            if saved_dr_ip_address in graph_obj.drIpAddressToMetricMap:
+                graph_obj.drIpAddressToMetricMap.pop(saved_dr_ip_address)
+        self.drIpAddressToMetricMap[lsa_dr_ip_address] = lsa_metric
     
     def dr_neigh_add(self, lsa2_neighbor_rid) -> None:
         # keep LSA2 neighbor list per LSA, not per LSU, because we need LSA Age, and it's property of LSA
@@ -109,7 +147,6 @@ def ifLSAcompleted(method):
             if not bool(lsa_obj.age_sec and lsa_obj.adv_router_id and lsa_obj.link_state_id):
                 raise ValueError('LSA object is not completed')
             else:
-                print(f'LSA object complete')
                 return method(ref, *args, **kwargs)
         else:
             # do not include LSA object
@@ -117,12 +154,12 @@ def ifLSAcompleted(method):
     return inner
 
 class Graph:
-    def __init__(self, p2pOwnRidToOwnIpAddressDdDdMap, p2pOwnIpAddressWithRemoteNeighborRidMap, ospf_RID_to_stub_net, DrIpAddressToNeighborsRidSetMap, drIpAddressToMetricMap) -> None:
+    def __init__(self, p2pOwnRidToOwnIpAddressDdDdMap, p2pOwnIpAddressWithRemoteNeighborRidMap, ospf_RID_to_stub_net, DrIpAddressToNeighborsRidSetMap, drIpAddressToMetricMap, OwnRidToOwnIpToDrIpAddressMap) -> None:
         """
         ospf_RID_to_stub_net # {'192.168.1.1': [{'subnet': '10.100.0.0/24', 'cost': 10, 'area': 1/-1}]}, for EXT LSA5 - area -1
         """
-        self.p2pOwnRidToOwnIpAddressDdDdMap = p2pOwnRidToOwnIpAddressDdDdMap # {'10.100.0.1': {'192.168.100.4': 10, '192.168.101.4': 20}}. '10.100.0.1' has two interfaces to p2p neighbors via own interfaces '192.168.100.4' and '192.168.101.4' with cost 10 and 20 respectivelly
-        self.p2pOwnIpAddressWithRemoteNeighborRidMap = p2pOwnIpAddressWithRemoteNeighborRidMap # {'192.168.100.4': '10.100.0.2', '192.168.101.4': '10.100.0.3'} via own interface with IP 192.168.100.4 - OSPF neighbor with RID 10.100.0.2
+        self.p2pOwnRidToOwnIpAddressDdDdMap: dict[RID, dict[IPAddress, Cost]] = p2pOwnRidToOwnIpAddressDdDdMap # {'10.100.0.1': {'192.168.100.4': 10, '192.168.101.4': 20}}. '10.100.0.1' has two interfaces to p2p neighbors via own interfaces '192.168.100.4' and '192.168.101.4' with cost 10 and 20 respectivelly
+        self.p2pOwnIpAddressWithRemoteNeighborRidMap: dict[IPAddress, RID] = p2pOwnIpAddressWithRemoteNeighborRidMap # {'192.168.100.4': '10.100.0.2', '192.168.101.4': '10.100.0.3'} via own interface with IP 192.168.100.4 - OSPF neighbor with RID 10.100.0.2
         self.P2P_LSA_ll = []
 
         # Stub networks
@@ -131,8 +168,9 @@ class Graph:
         self.doParseStub(ospf_RID_to_stub_net)
 
         # LSA2 info
-        self.DrIpAddressToNeighborsRidSetMap = {drIpAddress:set(NeighborsRidList) for drIpAddress, NeighborsRidList in DrIpAddressToNeighborsRidSetMap.items()}
-        self.drIpAddressToMetricMap = drIpAddressToMetricMap
+        self.DrIpAddressToNeighborsRidSetMap: dict[IPAddress, Set[RID]] = {drIpAddress:set(NeighborsRidList) for drIpAddress, NeighborsRidList in DrIpAddressToNeighborsRidSetMap.items()}
+        self.OwnRidToOwnIpToDrIpAddressMap: dict[RID, dict[IPAddress, IPAddress]] = OwnRidToOwnIpToDrIpAddressMap # {'10.1.1.4': {'192.168.123.24': '192.168.123.1'}}. the router with OSPF ID 10.1.1.4 has DR IP address 192.168.123.1 over his own IP 192.168.123.24. It's needed in order to distinguish DRs on different interfaces
+        self.drIpAddressToMetricMap: dict[IPAddress, Cost] = drIpAddressToMetricMap
 
     def add_stub(self, adv_router_id, newStubNetwork, metric) -> None:
         self.OwnRidToStubNetworkWithMaskToMetricMap[adv_router_id].setdefault(newStubNetwork, metric)
@@ -163,7 +201,7 @@ class Graph:
         self.p2pOwnIpAddressWithRemoteNeighborRidMap.pop(oldP2pOwnIpAddress, '')
 
     @ifLSAcompleted
-    def doGetNewOldDiffP2p(self, lsu_obj):
+    def doGetNewOldDiffP2p(self, lsu_obj)-> tuple[set[IPAddress], set[IPAddress], set[IPAddress]]:
         newP2pOwnIpAddressSet_all = set()
         oldP2pOwnIpAddressSet_all = set()
         changedP2pOwnIpAddressSet_all = set()
@@ -201,7 +239,7 @@ class Graph:
         return newP2pOwnIpAddressSet_all, oldP2pOwnIpAddressSet_all, changedP2pOwnIpAddressSet_all
     
     @ifLSAcompleted
-    def doGetNewOldDiffStubSingleLSA(self, lsa_obj):
+    def doGetNewOldDiffStubSingleLSA(self, lsa_obj) -> tuple[set[NETWORK], set[NETWORK], set[NETWORK]]:
         StubNetworkFromGraph = set(self.OwnRidToStubNetworkWithMaskToMetricMap.get(lsa_obj.adv_router_id, {}).keys())
         StubNetworkFromLSA = set(lsa_obj.OwnRidToStubNetworkWithMaskToMetricMap[lsa_obj.adv_router_id].keys())
 
@@ -229,37 +267,12 @@ class Graph:
         return newStubNetworkSet, oldStubNetworkSet, changedMetricStubNetworkSet
 
 
-    def doGetNewOldDiffStub(self, lsu_obj):
+    def doGetNewOldDiffStub(self, lsu_obj) -> tuple[set[NETWORK], set[NETWORK], set[NETWORK]]:
         newStubNetworkSet_all = set()
         oldStubNetworkSet_all = set()
         changedMetricStubNetworkSet_all = set()
         for lsa_obj in lsu_obj.LSA_ll:
-            '''
-            StubNetworkFromGraph = set(self.OwnRidToStubNetworkWithMaskToMetricMap.get(lsa_obj.adv_router_id, {}).keys())
-            StubNetworkFromLSA = set(lsa_obj.OwnRidToStubNetworkWithMaskToMetricMap[lsa_obj.adv_router_id].keys())
 
-            newStubNetworkSet = StubNetworkFromLSA - StubNetworkFromGraph
-            for newStubNetwork in newStubNetworkSet:
-                print(f"new stub network: {newStubNetwork}. Detected by: {lsa_obj.adv_router_id}")
-                # add it to Graph
-                self.add_stub(lsa_obj.adv_router_id, newStubNetwork, lsa_obj.OwnRidToStubNetworkWithMaskToMetricMap[lsa_obj.adv_router_id][newStubNetwork])
-
-            oldStubNetworkSet = StubNetworkFromGraph - StubNetworkFromLSA
-            for oldStubNetwork in oldStubNetworkSet:
-                print(f"old stub network: {oldStubNetwork}. Detected by: {lsa_obj.adv_router_id}")
-                # remove it from Graph
-                self.adv_router_id = lsa_obj.adv_router_id # for using common method
-                self.del_stub(lsa_obj.adv_router_id, oldStubNetwork)
-            
-            changedMetricStubNetworkSet = set()
-            for commonStubNetwork in StubNetworkFromGraph.intersection(StubNetworkFromLSA):
-                # compare metric on P2P links
-                stubMetricFromGraph = self.OwnRidToStubNetworkWithMaskToMetricMap[lsa_obj.adv_router_id][commonStubNetwork]
-                stubMetricFromLSA = lsa_obj.OwnRidToStubNetworkWithMaskToMetricMap[lsa_obj.adv_router_id][commonStubNetwork]
-                if stubMetricFromGraph != stubMetricFromLSA:
-                    print(f"changed stub network metric {commonStubNetwork}. Old: {stubMetricFromGraph}, new: {stubMetricFromLSA}. Detected by: {lsa_obj.adv_router_id}")
-                    changedMetricStubNetworkSet.add(commonStubNetwork)
-            '''
             newStubNetworkSet, oldStubNetworkSet, changedMetricStubNetworkSet = self.doGetNewOldDiffStubSingleLSA(lsa_obj)
             newStubNetworkSet_all.update(newStubNetworkSet)
             oldStubNetworkSet_all.update(oldStubNetworkSet)
@@ -267,13 +280,11 @@ class Graph:
         return newStubNetworkSet_all, oldStubNetworkSet_all, changedMetricStubNetworkSet_all
     
     @ifLSAcompleted
-    def doGetNewOldLsa2Neighbors(self, lsa_obj) -> Union[Set[str], Set[str]]:
+    def doGetNewOldLsa2Neighbors(self, lsa_obj) -> tuple[set[RID], set[RID]]:
         # Log string output
         hostDownLog_str = "host: {neighborName} {newStateUpDown}, detected by: {lsa_adv_router_id}"
         # cycle over all LSAs is not needed here, because we print LSA neighbors changes every time when we detect new LSA Header
-        #for drIpAddress, drNeighborSetFromLSA in lsa_obj.DrIpAddressToNeighborsRidSetMap.items(): # Return after 
-        #drIpAddress = lsa_obj.link_state_id
-        drNeighborSetFromLSA = lsa_obj.DrIpAddressToNeighborsRidSetMap.get( lsa_obj.link_state_id, set() )
+        drNeighborSetFromLSA = lsa_obj.DrIpAddressToNeighborsRidSetMap.get( lsa_obj.link_state_id, set() ) # lsa_obj.link_state_id - IP address of DR
         drNeighborSetFromGraph = self.DrIpAddressToNeighborsRidSetMap.get( lsa_obj.link_state_id, set() )
         if lsa_obj.age_sec == 3600:
             # All neighbors except Advertising Neighbor is down. Test 14.
@@ -301,7 +312,7 @@ class Graph:
 
         return newNeighbors, oldNeighbors
  
-    def doGetDiffTransit(self, lsu_obj):
+    def doGetDiffTransit(self, lsu_obj) -> None:
         for lsa_obj in lsu_obj.LSA_ll:
             # take all transit networks to DRs and compare metric, then pring changed metric to all neighbors to DR 
             for commonDrIpAddress in set(self.drIpAddressToMetricMap.keys()).intersection(set(lsa_obj.drIpAddressToMetricMap.keys())):
@@ -310,4 +321,6 @@ class Graph:
                 if toDrMetricFromGraph != toDrMetricFromLSA:
                     for NeighborsRid in self.DrIpAddressToNeighborsRidSetMap[commonDrIpAddress]:
                         print(f"changed transit metric with {NeighborsRid}. Old: {toDrMetricFromGraph}, new: {toDrMetricFromLSA}. Detected by: {lsa_obj.adv_router_id}")
+                        # update metric to new
+                        self.drIpAddressToMetricMap[commonDrIpAddress] = toDrMetricFromLSA
 

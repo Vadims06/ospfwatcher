@@ -6,7 +6,7 @@ import pytest
 
 p2pOwnRidToOwnIpAddressDdDdMap = {'10.1.1.4': {'172.17.0.1': 1200, '192.16.0.1': 10}}
 p2pOwnIpAddressWithRemoteNeighborRidMap = {'172.17.0.1': '192.168.100.100', '192.16.0.1': '192.168.100.101'}
-graph_obj = Graph(p2pOwnRidToOwnIpAddressDdDdMap, p2pOwnIpAddressWithRemoteNeighborRidMap, {}, {}, {})
+graph_obj = Graph(p2pOwnRidToOwnIpAddressDdDdMap, p2pOwnIpAddressWithRemoteNeighborRidMap, {}, {}, {}, {})
 
 lsu_obj = LSU()
 

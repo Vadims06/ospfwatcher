@@ -21,7 +21,7 @@ ospf_RID_to_stub_net = {lsa_obj.adv_router_id: [
     }
 ]}
 
-graph_obj = Graph({}, {}, ospf_RID_to_stub_net, {}, {})
+graph_obj = Graph({}, {}, ospf_RID_to_stub_net, {}, {}, {})
 
 tmp_router_lsa_ll = [
     {
