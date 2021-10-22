@@ -1,0 +1,87 @@
+2021/08/22 07:43:09 OSPF: -----------------------------------------------------
+2021/08/22 07:43:09 OSPF: Header
+2021/08/22 07:43:09 OSPF:   Version 2
+2021/08/22 07:43:09 OSPF:   Type 4 (Link State Update)
+2021/08/22 07:43:09 OSPF:   Packet Len 60
+2021/08/22 07:43:09 OSPF:   Router ID 10.1.1.4
+2021/08/22 07:43:09 OSPF:   Area ID 0.0.0.1
+2021/08/22 07:43:09 OSPF:   Checksum 0x0
+2021/08/22 07:43:09 OSPF:   AuType Null
+2021/08/22 07:43:09 OSPF: Link State Update
+2021/08/22 07:43:09 OSPF:   # LSAs 1
+2021/08/22 07:43:09 OSPF:   LSA Header
+2021/08/22 07:43:09 OSPF:     LS age 885
+2021/08/22 07:43:09 OSPF:     Options 34 (*|-|DC|-|-|-|E|-)
+2021/08/22 07:43:09 OSPF:     LS type 2 (network-LSA)
+2021/08/22 07:43:09 OSPF:     Link State ID 10.1.23.3
+2021/08/22 07:43:09 OSPF:     Advertising Router 10.1.1.3
+2021/08/22 07:43:09 OSPF:     LS sequence number 0x80000008
+2021/08/22 07:43:09 OSPF:     LS checksum 0x845d
+2021/08/22 07:43:09 OSPF:     length 32
+2021/08/22 07:43:09 OSPF:   Network-LSA
+2021/08/22 07:43:09 OSPF:     Network Mask 255.255.255.0
+2021/08/22 07:43:09 OSPF:     # Attached Routers 2
+2021/08/22 07:43:09 OSPF:       Attached Router 10.1.1.3
+2021/08/22 07:43:09 OSPF:       Attached Router 10.1.1.2
+2021/08/22 07:43:09 OSPF: Link State Update received from [10.1.1.4] via [gre1:172.17.0.100]
+2021/08/22 07:43:09 OSPF:  src [172.17.0.1],
+2021/08/22 07:43:09 OSPF:  dst [224.0.0.5]
+2021/08/22 07:43:09 OSPF: -----------------------------------------------------
+2021/08/22 07:43:09 OSPF: -----------------------------------------------------
+2021/08/22 07:43:09 OSPF: Header
+2021/08/22 07:43:09 OSPF:   Version 2
+2021/08/22 07:43:09 OSPF:   Type 4 (Link State Update)
+2021/08/22 07:43:09 OSPF:   Packet Len 124
+2021/08/22 07:43:09 OSPF:   Router ID 10.1.1.4
+2021/08/22 07:43:09 OSPF:   Area ID 0.0.0.1
+2021/08/22 07:43:09 OSPF:   Checksum 0x0
+2021/08/22 07:43:09 OSPF:   AuType Null
+2021/08/22 07:43:09 OSPF: Link State Update
+2021/08/22 07:43:09 OSPF:   # LSAs 3
+2021/08/22 07:43:09 OSPF:   LSA Header
+2021/08/22 07:43:09 OSPF:     LS age 3600
+2021/08/22 07:43:09 OSPF:     Options 34 (*|-|DC|-|-|-|E|-)
+2021/08/22 07:43:09 OSPF:     LS type 2 (network-LSA)
+2021/08/22 07:43:09 OSPF:     Link State ID 10.1.24.4
+2021/08/22 07:43:09 OSPF:     Advertising Router 10.1.1.4
+2021/08/22 07:43:09 OSPF:     LS sequence number 0x80000009
+2021/08/22 07:43:09 OSPF:     LS checksum 0x716b
+2021/08/22 07:43:09 OSPF:     length 32
+2021/08/22 07:43:09 OSPF:   Network-LSA
+2021/08/22 07:43:09 OSPF:     Network Mask 255.255.255.0
+2021/08/22 07:43:09 OSPF:     # Attached Routers 2
+2021/08/22 07:43:09 OSPF:       Attached Router 10.1.1.4
+2021/08/22 07:43:09 OSPF:       Attached Router 10.1.1.2
+2021/08/22 07:43:09 OSPF:   LSA Header
+2021/08/22 07:43:09 OSPF:     LS age 41
+2021/08/22 07:43:09 OSPF:     Options 34 (*|-|DC|-|-|-|E|-)
+2021/08/22 07:43:09 OSPF:     LS type 2 (network-LSA)
+2021/08/22 07:43:09 OSPF:     Link State ID 10.1.123.24
+2021/08/22 07:43:09 OSPF:     Advertising Router 10.1.123.24
+2021/08/22 07:43:09 OSPF:     LS sequence number 0x8000000d
+2021/08/22 07:43:09 OSPF:     LS checksum 0xffb4
+2021/08/22 07:43:09 OSPF:     length 32
+2021/08/22 07:43:09 OSPF:   Network-LSA
+2021/08/22 07:43:09 OSPF:     Network Mask 255.255.255.0
+2021/08/22 07:43:09 OSPF:     # Attached Routers 2
+2021/08/22 07:43:09 OSPF:       Attached Router 10.1.123.24
+2021/08/22 07:43:09 OSPF:       Attached Router 10.1.123.23
+2021/08/22 07:43:09 OSPF:   LSA Header
+2021/08/22 07:43:09 OSPF:     LS age 3600
+2021/08/22 07:43:09 OSPF:     Options 34 (*|-|DC|-|-|-|E|-)
+2021/08/22 07:43:09 OSPF:     LS type 2 (network-LSA)
+2021/08/22 07:43:09 OSPF:     Link State ID 10.1.23.3
+2021/08/22 07:43:09 OSPF:     Advertising Router 10.1.1.3
+2021/08/22 07:43:09 OSPF:     LS sequence number 0x80000009
+2021/08/22 07:43:09 OSPF:     LS checksum 0x825e
+2021/08/22 07:43:09 OSPF:     length 32
+2021/08/22 07:43:09 OSPF:   Network-LSA
+2021/08/22 07:43:09 OSPF:     Network Mask 255.255.255.0
+2021/08/22 07:43:09 OSPF:     # Attached Routers 2
+2021/08/22 07:43:09 OSPF:       Attached Router 10.1.1.3
+2021/08/22 07:43:09 OSPF:       Attached Router 10.1.1.2
+2021/08/22 07:43:09 OSPF: Link State Update received from [10.1.1.4] via [gre1:172.17.0.100]
+2021/08/22 07:43:09 OSPF:  src [172.17.0.1],
+2021/08/22 07:43:09 OSPF:  dst [224.0.0.5]
+2021/08/22 07:43:09 OSPF: -----------------------------------------------------
+2021/08/22 07:43:09 OSPF: SPF: Scheduled in 0 msec
