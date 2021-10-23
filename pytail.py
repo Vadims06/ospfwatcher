@@ -88,6 +88,7 @@ if __name__ == '__main__':
                                         '10.1.1.2': {'10.1.123.1': '10.1.123.23', '10.1.24.2': '10.1.24.4'},
                                         '10.1.1.4': {'10.1.24.4': '10.1.24.4'}}
         drIpAddressToMetricMap = {'10.1.24.4': 100, '10.1.23.3': 10}
+    print(GraphFromTopolograph())
     graph_obj = Graph(p2pOwnRidToOwnIpAddressDdDdMap, p2pOwnIpAddressWithRemoteNeighborRidMap, ospf_RID_to_stub_net, DrIpAddressToNeighborsRidSetMap, drIpAddressToMetricMap, OwnRidToOwnIpToDrIpAddressMap)
     # test15
     for adv_router_id, link_attr_dd in {'10.1.1.4': {'10.1.1.1': {'link_id': '10.1.1.1', 'link_data': '10.1.14.4', 'lsa_type': 1, 'metric': 10}, '192.168.100.100': {'link_id': '192.168.100.100', 'link_data': '172.17.0.1', 'lsa_type': 1, 'metric': 1000}}}.items():

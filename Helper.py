@@ -1,13 +1,13 @@
 from collections import defaultdict
 import ipaddress
+import requests, os
+from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticationException
 from typing import Optional, Set, Union, List, Annotated
 
 class General:
     def add_stub(self, obj, newStubNetwork, metric) -> None:
         metric = obj.OwnRidToStubNetworkWithMaskToMetricMap[obj.adv_router_id][newStubNetwork]
         self.OwnRidToStubNetworkWithMaskToMetricMap[obj.adv_router_id].setdefault(newStubNetwork, metric)
-    
-    
 
 class LSU:
     def __init__(self) -> None:
@@ -324,3 +324,36 @@ class Graph:
                         # update metric to new
                         self.drIpAddressToMetricMap[commonDrIpAddress] = toDrMetricFromLSA
 
+class QConnecter:
+    _device = {
+        'device_type': 'cisco_ios_telnet',
+        "host": '127.0.0.1',
+        "port": 2604,
+        "password": 'zebra',
+        }
+
+    def get_lsdb_output(self):
+        output_str = ''
+        try:
+            with ConnectHandler(**self._device) as conn:
+                for command in ['show ip ospf database router', 'show ip ospf database network']:
+                    output_str += conn.send_command(command)
+        except (NetmikoTimeoutException, NetmikoAuthenticationException) as error:
+            print(error)
+        return output_str
+
+class GraphFromTopolograph(Graph):
+
+    def __init__(self) -> None:
+
+        quagga_conn = QConnecter()
+        lsdb_output = quagga_conn.get_lsdb_output()
+        if not lsdb_output:
+            raise ValueError('Cannot get LSDB from Quagga Watcher')
+        _login, _pass = os.getenv('TOPOLOGRAPH_USER_LOGIN'), os.getenv('TOPOLOGRAPH_USER_PASS')
+        if not _login and not _pass:
+            raise ValueError('credentials for connection to Topolograph are not set')
+        r_post = requests.post('https://topolograph.com/api/graph', auth=(_login, _pass), 
+                          json={'lsdb_output': lsdb_output, 'vendor_device': 'Quagga'})
+        print(r_post.json())
+        #super().__init__()
