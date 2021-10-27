@@ -4,8 +4,7 @@ from Helper import *
 import pytest
 
 DrIpAddressToNeighborsRidSetMap = {'10.1.24.4': {'10.1.1.2', '10.1.1.4'}, '10.1.23.3': {'10.1.1.2', '10.1.1.3'}}
-drIpAddressToMetricMap = {'10.1.24.4': 100, '10.1.23.3': 10}
-graph_obj = Graph({}, {}, {}, DrIpAddressToNeighborsRidSetMap, drIpAddressToMetricMap, {})
+graph_obj = Graph({}, {}, {}, DrIpAddressToNeighborsRidSetMap, {})
 
 lsu_obj = LSU()
 
@@ -27,7 +26,7 @@ assert oldNeighbors == {'10.1.1.2'}, 'old neighbor in transit network detection 
 sample_test = {
     '10.1.23.3': {'10.1.1.2', '10.1.1.3', '10.1.1.4'},
 }
-graph_obj = Graph({}, {}, {}, DrIpAddressToNeighborsRidSetMap, drIpAddressToMetricMap, {})
+graph_obj = Graph({}, {}, {}, DrIpAddressToNeighborsRidSetMap, {})
 lsa_obj = LSA(lsu_obj)
 lsa_obj.age_sec = 10
 lsa_obj.adv_router_id = '10.1.1.3'

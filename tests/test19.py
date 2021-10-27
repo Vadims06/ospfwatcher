@@ -5,11 +5,10 @@ import pytest
 
 DrIpAddressToNeighborsRidSetMap = {'10.1.123.23': {'10.1.1.2', '10.1.123.23', '10.1.123.24'}}
 # 10.1.123.23 is DR
-OwnRidToOwnIpToDrIpAddressMap = {'10.1.123.24': {'10.1.123.24': '10.1.123.23'}, 
-                                '10.1.123.23': {'10.1.123.23': '10.1.123.23'}, 
-                                '10.1.1.2': {'10.1.123.1': '10.1.123.23'}}
-drIpAddressToMetricMap = {'10.1.123.23': 100}
-graph_obj = Graph({}, {}, {}, DrIpAddressToNeighborsRidSetMap, drIpAddressToMetricMap, OwnRidToOwnIpToDrIpAddressMap)
+OwnRidToOwnIpToDrIpAddressToMetricMap = {'10.1.123.24': {'10.1.123.24': {'10.1.123.23': 10}}, 
+                                '10.1.123.23': {'10.1.123.23': {'10.1.123.23': 11}}, 
+                                '10.1.1.2': {'10.1.123.1': {'10.1.123.23': 12}}}
+graph_obj = Graph({}, {}, {}, DrIpAddressToNeighborsRidSetMap, OwnRidToOwnIpToDrIpAddressToMetricMap)
 
 lsu_obj = LSU()
 

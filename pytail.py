@@ -72,7 +72,7 @@ if __name__ == '__main__':
     ospf_RID_to_stub_net = {}
     drIpAddressToMetricMap = {}
     # for demo
-    test_num = 19
+    test_num = 25
     if test_num == 5:
         ospf_RID_to_stub_net = {'10.1.1.2': [{'subnet': '192.1.211.0/24', 'cost':  1}, {'subnet': '192.1.213.0/24', 'cost': 1}, {'subnet': '10.1.1.2/32', 'cost': 1}, {'subnet': '10.1.101.0/24', 'cost': 1}, {'subnet': '192.1.212.0/24', 'cost': 1}, {'subnet': '192.1.220.0/24', 'cost': 10}, {'subnet': '192.1.210.0/24', 'cost': 1}, {'subnet': '10.1.12.0/24', 'cost': 10}]}
     elif test_num == 16:
@@ -88,13 +88,14 @@ if __name__ == '__main__':
                                         '10.1.1.2': {'10.1.123.1': '10.1.123.23', '10.1.24.2': '10.1.24.4'},
                                         '10.1.1.4': {'10.1.24.4': '10.1.24.4'}}
         drIpAddressToMetricMap = {'10.1.24.4': 100, '10.1.23.3': 10}
-    print(GraphFromTopolograph())
-    graph_obj = Graph(p2pOwnRidToOwnIpAddressDdDdMap, p2pOwnIpAddressWithRemoteNeighborRidMap, ospf_RID_to_stub_net, DrIpAddressToNeighborsRidSetMap, drIpAddressToMetricMap, OwnRidToOwnIpToDrIpAddressMap)
+    graph_obj = GraphFromTopolograph()
+    graph_obj.init_graph()
+    #graph_obj = Graph(p2pOwnRidToOwnIpAddressDdDdMap, p2pOwnIpAddressWithRemoteNeighborRidMap, ospf_RID_to_stub_net, DrIpAddressToNeighborsRidSetMap, drIpAddressToMetricMap, OwnRidToOwnIpToDrIpAddressMap)
     # test15
-    for adv_router_id, link_attr_dd in {'10.1.1.4': {'10.1.1.1': {'link_id': '10.1.1.1', 'link_data': '10.1.14.4', 'lsa_type': 1, 'metric': 10}, '192.168.100.100': {'link_id': '192.168.100.100', 'link_data': '172.17.0.1', 'lsa_type': 1, 'metric': 1000}}}.items():
-        hostToP2pMapFromGraph[adv_router_id].update(link_attr_dd)
-    #for line in follow(open("/var/log/quagga/ospfd.log", 'r')):
-    for line in follow(open(f"/home/ubuntu/watchlog/tests/test{test_num}.txt", 'r')):
+    ##for adv_router_id, link_attr_dd in {'10.1.1.4': {'10.1.1.1': {'link_id': '10.1.1.1', 'link_data': '10.1.14.4', 'lsa_type': 1, 'metric': 10}, '192.168.100.100': {'link_id': '192.168.100.100', 'link_data': '172.17.0.1', 'lsa_type': 1, 'metric': 1000}}}.items():
+    ##    hostToP2pMapFromGraph[adv_router_id].update(link_attr_dd)
+    for line in follow(open("/var/log/quagga/ospfd.log", 'r')):
+    #for line in follow(open(f"/home/ubuntu/watchlog/tests/test{test_num}.txt", 'r')):
         # line parsinf
         #if re_mew_msg.match(line):
         #    parsedChangedLSA = {}
@@ -140,8 +141,8 @@ if __name__ == '__main__':
             """
             Each new LSA header - we have to remember LSA age and adv router and save Network LSA with this attributes.
             """
-            if 'lsa_obj' in locals(): # `'lsa_obj' in locals` is needed when we first time to run script and lsa_obj is not defined yet.
-                graph_obj.doGetNewOldLsa2Neighbors(lsa_obj)
+            #if 'lsa_obj' in locals(): # `'lsa_obj' in locals` is needed when we first time to run script and lsa_obj is not defined yet.
+            # BUG - REWRITE actual values by empty    graph_obj.doGetNewOldLsa2Neighbors(lsa_obj)
             lsa_obj = LSA(lsu_obj)          
         
         re_lsa_age_sec_match = re_lsa_age_sec.match(line)
@@ -215,7 +216,6 @@ if __name__ == '__main__':
                 newP2pOwnIpAddressSet, oldP2pOwnIpAddressSet, changedP2pOwnIpAddressSet = graph_obj.doGetNewOldDiffP2p(lsu_obj)
                 # check stub link
                 newStubNetworkSet, oldStubNetworkSet, changedMetricStubNetworkSet = graph_obj.doGetNewOldDiffStub(lsu_obj)
-                # check link to DR IP address
-                graph_obj.doGetDiffTransit(lsu_obj) # if new DR, we do not alarm about this. It will be done via Network LSA neighbor list decriasing detection
+                # change metrics on transit links are done after matching appropriate lsa type == 2
             if process_network_lsa:
                 graph_obj.doGetNewOldLsa2Neighbors(lsa_obj)

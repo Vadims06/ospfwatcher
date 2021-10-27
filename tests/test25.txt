@@ -1,0 +1,230 @@
+shutdown R23
+2021/10/26 13:54:19 OSPF: -----------------------------------------------------
+2021/10/26 13:54:19 OSPF: Header
+2021/10/26 13:54:19 OSPF:   Version 2
+2021/10/26 13:54:19 OSPF:   Type 4 (Link State Update)
+2021/10/26 13:54:19 OSPF:   Packet Len 184
+2021/10/26 13:54:19 OSPF:   Router ID 10.1.1.4
+2021/10/26 13:54:19 OSPF:   Area ID 0.0.0.1
+2021/10/26 13:54:19 OSPF:   Checksum 0x0
+2021/10/26 13:54:19 OSPF:   AuType Null
+2021/10/26 13:54:19 OSPF: Link State Update
+2021/10/26 13:54:19 OSPF:   # LSAs 1
+2021/10/26 13:54:19 OSPF:   LSA Header
+2021/10/26 13:54:19 OSPF:     LS age 2
+2021/10/26 13:54:19 OSPF:     Options 34 (*|-|DC|-|-|-|E|-)
+2021/10/26 13:54:19 OSPF:     LS type 1 (router-LSA)
+2021/10/26 13:54:19 OSPF:     Link State ID 10.1.1.2
+2021/10/26 13:54:19 OSPF:     Advertising Router 10.1.1.2
+2021/10/26 13:54:19 OSPF:     LS sequence number 0x8000000d
+2021/10/26 13:54:19 OSPF:     LS checksum 0x479d
+2021/10/26 13:54:19 OSPF:     length 156
+2021/10/26 13:54:19 OSPF:   Router-LSA
+2021/10/26 13:54:19 OSPF:     flags -|-|-
+2021/10/26 13:54:19 OSPF:     # links 11
+2021/10/26 13:54:19 OSPF:     Link ID 10.1.1.2
+2021/10/26 13:54:19 OSPF:     Link Data 255.255.255.255
+2021/10/26 13:54:19 OSPF:     Type 3
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 10
+2021/10/26 13:54:19 OSPF:     Link ID 192.1.213.0
+2021/10/26 13:54:19 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:19 OSPF:     Type 3
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 1
+2021/10/26 13:54:19 OSPF:     Link ID 192.1.212.0
+2021/10/26 13:54:19 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:19 OSPF:     Type 3
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 1
+2021/10/26 13:54:19 OSPF:     Link ID 192.1.211.0
+2021/10/26 13:54:19 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:19 OSPF:     Type 3
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 1
+2021/10/26 13:54:19 OSPF:     Link ID 192.1.210.0
+2021/10/26 13:54:19 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:19 OSPF:     Type 3
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 1
+2021/10/26 13:54:19 OSPF:     Link ID 10.1.101.0
+2021/10/26 13:54:19 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:19 OSPF:     Type 3
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 1
+2021/10/26 13:54:19 OSPF:     Link ID 192.1.220.0
+2021/10/26 13:54:19 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:19 OSPF:     Type 3
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 10
+2021/10/26 13:54:19 OSPF:     Link ID 10.1.12.0
+2021/10/26 13:54:19 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:19 OSPF:     Type 3
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 10
+2021/10/26 13:54:19 OSPF:     Link ID 10.1.24.4
+2021/10/26 13:54:19 OSPF:     Link Data 10.1.24.2
+2021/10/26 13:54:19 OSPF:     Type 2
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 10
+2021/10/26 13:54:19 OSPF:     Link ID 10.1.23.3
+2021/10/26 13:54:19 OSPF:     Link Data 10.1.23.2
+2021/10/26 13:54:19 OSPF:     Type 2
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 10
+2021/10/26 13:54:19 OSPF:     Link ID 10.1.123.23
+2021/10/26 13:54:19 OSPF:     Link Data 10.1.123.1
+2021/10/26 13:54:19 OSPF:     Type 2
+2021/10/26 13:54:19 OSPF:     TOS 0
+2021/10/26 13:54:19 OSPF:     metric 10
+2021/10/26 13:54:19 OSPF: Link State Update received from [10.1.1.4] via [tun0:172.17.0.100]
+2021/10/26 13:54:19 OSPF:  src [172.17.0.1],
+2021/10/26 13:54:19 OSPF:  dst [224.0.0.5]
+2021/10/26 13:54:19 OSPF: -----------------------------------------------------
+2021/10/26 13:54:30 OSPF: -----------------------------------------------------
+2021/10/26 13:54:30 OSPF: Header
+2021/10/26 13:54:30 OSPF:   Version 2
+2021/10/26 13:54:30 OSPF:   Type 4 (Link State Update)
+2021/10/26 13:54:30 OSPF:   Packet Len 184
+2021/10/26 13:54:30 OSPF:   Router ID 10.1.1.4
+2021/10/26 13:54:30 OSPF:   Area ID 0.0.0.1
+2021/10/26 13:54:30 OSPF:   Checksum 0x0
+2021/10/26 13:54:30 OSPF:   AuType Null
+2021/10/26 13:54:30 OSPF: Link State Update
+2021/10/26 13:54:30 OSPF:   # LSAs 1
+2021/10/26 13:54:30 OSPF:   LSA Header
+2021/10/26 13:54:30 OSPF:     LS age 2
+2021/10/26 13:54:30 OSPF:     Options 34 (*|-|DC|-|-|-|E|-)
+2021/10/26 13:54:30 OSPF:     LS type 1 (router-LSA)
+2021/10/26 13:54:30 OSPF:     Link State ID 10.1.1.2
+2021/10/26 13:54:30 OSPF:     Advertising Router 10.1.1.2
+2021/10/26 13:54:30 OSPF:     LS sequence number 0x8000000e
+2021/10/26 13:54:30 OSPF:     LS checksum 0xc71b
+2021/10/26 13:54:30 OSPF:     length 156
+2021/10/26 13:54:30 OSPF:   Router-LSA
+2021/10/26 13:54:30 OSPF:     flags -|-|-
+2021/10/26 13:54:30 OSPF:     # links 11
+2021/10/26 13:54:30 OSPF:     Link ID 10.1.1.2
+2021/10/26 13:54:30 OSPF:     Link Data 255.255.255.255
+2021/10/26 13:54:30 OSPF:     Type 3
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 10
+2021/10/26 13:54:30 OSPF:     Link ID 192.1.213.0
+2021/10/26 13:54:30 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:30 OSPF:     Type 3
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 1
+2021/10/26 13:54:30 OSPF:     Link ID 192.1.212.0
+2021/10/26 13:54:30 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:30 OSPF:     Type 3
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 1
+2021/10/26 13:54:30 OSPF:     Link ID 192.1.211.0
+2021/10/26 13:54:30 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:30 OSPF:     Type 3
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 1
+2021/10/26 13:54:30 OSPF:     Link ID 192.1.210.0
+2021/10/26 13:54:30 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:30 OSPF:     Type 3
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 1
+2021/10/26 13:54:30 OSPF:     Link ID 10.1.101.0
+2021/10/26 13:54:30 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:30 OSPF:     Type 3
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 1
+2021/10/26 13:54:30 OSPF:     Link ID 192.1.220.0
+2021/10/26 13:54:30 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:30 OSPF:     Type 3
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 10
+2021/10/26 13:54:30 OSPF:     Link ID 10.1.12.0
+2021/10/26 13:54:30 OSPF:     Link Data 255.255.255.0
+2021/10/26 13:54:30 OSPF:     Type 3
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 10
+2021/10/26 13:54:30 OSPF:     Link ID 10.1.24.4
+2021/10/26 13:54:30 OSPF:     Link Data 10.1.24.2
+2021/10/26 13:54:30 OSPF:     Type 2
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 10
+2021/10/26 13:54:30 OSPF:     Link ID 10.1.23.3
+2021/10/26 13:54:30 OSPF:     Link Data 10.1.23.2
+2021/10/26 13:54:30 OSPF:     Type 2
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 10
+2021/10/26 13:54:30 OSPF:     Link ID 10.1.123.24
+2021/10/26 13:54:30 OSPF:     Link Data 10.1.123.1
+2021/10/26 13:54:30 OSPF:     Type 2
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 10
+2021/10/26 13:54:30 OSPF: Link State Update received from [10.1.1.4] via [tun0:172.17.0.100]
+2021/10/26 13:54:30 OSPF:  src [172.17.0.1],
+2021/10/26 13:54:30 OSPF:  dst [224.0.0.5]
+2021/10/26 13:54:30 OSPF: -----------------------------------------------------
+2021/10/26 13:54:30 OSPF: SPF: Scheduled in 0 msec
+2021/10/26 13:54:30 OSPF: -----------------------------------------------------
+2021/10/26 13:54:30 OSPF: Header
+2021/10/26 13:54:30 OSPF:   Version 2
+2021/10/26 13:54:30 OSPF:   Type 4 (Link State Update)
+2021/10/26 13:54:30 OSPF:   Packet Len 64
+2021/10/26 13:54:30 OSPF:   Router ID 10.1.1.4
+2021/10/26 13:54:30 OSPF:   Area ID 0.0.0.1
+2021/10/26 13:54:30 OSPF:   Checksum 0x0
+2021/10/26 13:54:30 OSPF:   AuType Null
+2021/10/26 13:54:30 OSPF: Link State Update
+2021/10/26 13:54:30 OSPF:   # LSAs 1
+2021/10/26 13:54:30 OSPF:   LSA Header
+2021/10/26 13:54:30 OSPF:     LS age 3
+2021/10/26 13:54:30 OSPF:     Options 34 (*|-|DC|-|-|-|E|-)
+2021/10/26 13:54:30 OSPF:     LS type 1 (router-LSA)
+2021/10/26 13:54:30 OSPF:     Link State ID 10.1.123.24
+2021/10/26 13:54:30 OSPF:     Advertising Router 10.1.123.24
+2021/10/26 13:54:30 OSPF:     LS sequence number 0x80000010
+2021/10/26 13:54:30 OSPF:     LS checksum 0x1886
+2021/10/26 13:54:30 OSPF:     length 36
+2021/10/26 13:54:30 OSPF:   Router-LSA
+2021/10/26 13:54:30 OSPF:     flags -|-|-
+2021/10/26 13:54:30 OSPF:     # links 1
+2021/10/26 13:54:30 OSPF:     Link ID 10.1.123.24
+2021/10/26 13:54:30 OSPF:     Link Data 10.1.123.24
+2021/10/26 13:54:30 OSPF:     Type 2
+2021/10/26 13:54:30 OSPF:     TOS 0
+2021/10/26 13:54:30 OSPF:     metric 777
+2021/10/26 13:54:30 OSPF: Link State Update received from [10.1.1.4] via [tun0:172.17.0.100]
+2021/10/26 13:54:30 OSPF:  src [172.17.0.1],
+2021/10/26 13:54:30 OSPF:  dst [224.0.0.5]
+2021/10/26 13:54:30 OSPF: -----------------------------------------------------
+2021/10/26 13:54:30 OSPF: SPF: Scheduled in 10 msec
+2021/10/26 13:54:30 OSPF: -----------------------------------------------------
+2021/10/26 13:54:30 OSPF: Header
+2021/10/26 13:54:30 OSPF:   Version 2
+2021/10/26 13:54:30 OSPF:   Type 4 (Link State Update)
+2021/10/26 13:54:30 OSPF:   Packet Len 60
+2021/10/26 13:54:30 OSPF:   Router ID 10.1.1.4
+2021/10/26 13:54:30 OSPF:   Area ID 0.0.0.1
+2021/10/26 13:54:30 OSPF:   Checksum 0x0
+2021/10/26 13:54:30 OSPF:   AuType Null
+2021/10/26 13:54:30 OSPF: Link State Update
+2021/10/26 13:54:30 OSPF:   # LSAs 1
+2021/10/26 13:54:30 OSPF:   LSA Header
+2021/10/26 13:54:30 OSPF:     LS age 5
+2021/10/26 13:54:30 OSPF:     Options 34 (*|-|DC|-|-|-|E|-)
+2021/10/26 13:54:30 OSPF:     LS type 2 (network-LSA)
+2021/10/26 13:54:30 OSPF:     Link State ID 10.1.123.24
+2021/10/26 13:54:30 OSPF:     Advertising Router 10.1.123.24
+2021/10/26 13:54:30 OSPF:     LS sequence number 0x80000001
+2021/10/26 13:54:30 OSPF:     LS checksum 0xb897
+2021/10/26 13:54:30 OSPF:     length 32
+2021/10/26 13:54:30 OSPF:   Network-LSA
+2021/10/26 13:54:30 OSPF:     Network Mask 255.255.255.0
+2021/10/26 13:54:30 OSPF:     # Attached Routers 2
+2021/10/26 13:54:30 OSPF:       Attached Router 10.1.123.24
+2021/10/26 13:54:30 OSPF:       Attached Router 10.1.1.2
+2021/10/26 13:54:30 OSPF: Link State Update received from [10.1.1.4] via [tun0:172.17.0.100]
+2021/10/26 13:54:30 OSPF:  src [172.17.0.1],
+2021/10/26 13:54:30 OSPF:  dst [224.0.0.5]
+2021/10/26 13:54:30 OSPF: -----------------------------------------------------
+2021/10/26 13:54:30 OSPF: SPF: Scheduled in 76 msec
+2021/10/26 13:54:31 OSPF: SPF Processing Time(usecs): External Routes: 3
