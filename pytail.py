@@ -72,7 +72,7 @@ if __name__ == '__main__':
     ospf_RID_to_stub_net = {}
     drIpAddressToMetricMap = {}
     # for demo
-    test_num = 25
+    test_num = 30
     if test_num == 5:
         ospf_RID_to_stub_net = {'10.1.1.2': [{'subnet': '192.1.211.0/24', 'cost':  1}, {'subnet': '192.1.213.0/24', 'cost': 1}, {'subnet': '10.1.1.2/32', 'cost': 1}, {'subnet': '10.1.101.0/24', 'cost': 1}, {'subnet': '192.1.212.0/24', 'cost': 1}, {'subnet': '192.1.220.0/24', 'cost': 10}, {'subnet': '192.1.210.0/24', 'cost': 1}, {'subnet': '10.1.12.0/24', 'cost': 10}]}
     elif test_num == 16:
@@ -89,13 +89,14 @@ if __name__ == '__main__':
                                         '10.1.1.4': {'10.1.24.4': '10.1.24.4'}}
         drIpAddressToMetricMap = {'10.1.24.4': 100, '10.1.23.3': 10}
     graph_obj = GraphFromTopolograph()
-    graph_obj.init_graph()
+    # not needed graph_obj.init_graph()
     #graph_obj = Graph(p2pOwnRidToOwnIpAddressDdDdMap, p2pOwnIpAddressWithRemoteNeighborRidMap, ospf_RID_to_stub_net, DrIpAddressToNeighborsRidSetMap, drIpAddressToMetricMap, OwnRidToOwnIpToDrIpAddressMap)
     # test15
     ##for adv_router_id, link_attr_dd in {'10.1.1.4': {'10.1.1.1': {'link_id': '10.1.1.1', 'link_data': '10.1.14.4', 'lsa_type': 1, 'metric': 10}, '192.168.100.100': {'link_id': '192.168.100.100', 'link_data': '172.17.0.1', 'lsa_type': 1, 'metric': 1000}}}.items():
     ##    hostToP2pMapFromGraph[adv_router_id].update(link_attr_dd)
     for line in follow(open("/var/log/quagga/ospfd.log", 'r')):
     #for line in follow(open(f"/home/ubuntu/watchlog/tests/test{test_num}.txt", 'r')):
+        #print(line, end='')
         # line parsinf
         #if re_mew_msg.match(line):
         #    parsedChangedLSA = {}
@@ -119,6 +120,11 @@ if __name__ == '__main__':
         '''
         # New LSU
         if re_link_state_update.match(line):
+            # we proceeded LSA1 or LSA2 later, but didn't match SPT log message
+            if process_router_lsa:
+                graph_obj.doGetNewOldDiffAllLsaOne(lsu_obj)
+            if process_network_lsa:
+                graph_obj.doGetNewOldLsa2Neighbors(lsa_obj)
             #LsuRouterLsaDetails = {} # include multiple advertising routers: LsuDetails = {'10.1.1.2': 'link_id': {router lsa details}}
             LsuNetworkLsaDetails = {} # {'10.1.1.2': [<attached routers list>]
             ## routerLsaDetails = {} # p2p, broadcast
@@ -187,12 +193,15 @@ if __name__ == '__main__':
                 p2p_obj = P2PLSA(lsa_obj, tmp_router_lsa)
             elif tmp_router_lsa['lsa_type'] == 2:
                 # lsa type 2 says about metric to DR IP address or set IP address of new DR
+                TRANSIT_LSA(lsa_obj, tmp_router_lsa) # just add to LSA and keep all transit lsa in one list. With this list the script can detect missed transit connections
                 lsa_obj.isNewMetricOrNewDr_check(tmp_router_lsa, graph_obj=graph_obj)
 
             elif tmp_router_lsa['lsa_type'] == 3:
                 # make stub object and add it to LSA obj automatically
                 stub_obj = STUBLSA(lsa_obj, tmp_router_lsa)
         # LSA2
+        if '0x80000028' in line:
+            print()
         if re_network_lsa_header.match(line):
             process_network_lsa = True
             # networkLsaDetails = {} # include all neighbors list
@@ -217,5 +226,8 @@ if __name__ == '__main__':
                 # check stub link
                 newStubNetworkSet, oldStubNetworkSet, changedMetricStubNetworkSet = graph_obj.doGetNewOldDiffStub(lsu_obj)
                 # change metrics on transit links are done after matching appropriate lsa type == 2
+                graph_obj.doGetDiffTransit(lsu_obj)
+                process_router_lsa = False # SPT can be printed several times after receiving msg, so proceed diff only one time
             if process_network_lsa:
                 graph_obj.doGetNewOldLsa2Neighbors(lsa_obj)
+                process_network_lsa = False # SPT can be printed several times after receiving msg, so proceed diff only one time
