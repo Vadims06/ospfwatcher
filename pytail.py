@@ -193,8 +193,8 @@ if __name__ == '__main__':
                 p2p_obj = P2PLSA(lsa_obj, tmp_router_lsa)
             elif tmp_router_lsa['lsa_type'] == 2:
                 # lsa type 2 says about metric to DR IP address or set IP address of new DR
-                TRANSIT_LSA(lsa_obj, tmp_router_lsa) # just add to LSA and keep all transit lsa in one list. With this list the script can detect missed transit connections
-                lsa_obj.isNewMetricOrNewDr_check(tmp_router_lsa, graph_obj=graph_obj)
+                transit_obj = TRANSIT_LSA(lsa_obj, tmp_router_lsa) # just add to LSA and keep all transit lsa in one list. With this list the script can detect missed transit connections
+                # moved to doGetDiffTransit lsa_obj.isNewMetricOrNewDr_check(transit_obj, graph_obj=graph_obj)
 
             elif tmp_router_lsa['lsa_type'] == 3:
                 # make stub object and add it to LSA obj automatically
