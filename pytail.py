@@ -41,6 +41,8 @@ if __name__ == '__main__':
 
     # LSU. LSA2 Body. 2021/08/21 15:44:39 OSPF:   Network-LSA
     re_network_lsa_header = re.compile('(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) OSPF:\s+Network-LSA')
+    # LSU. LSA2 Body. 2021/08/21 15:44:39 OSPF:   Network Mask 255.255.255.0
+    re_networkLsaNetworkMask = re.compile('(?P<timestamp>\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}) OSPF:\s+Network Mask\s*(?P<network_mask>\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
     # LSU. LSA2 Body. 
     # 2021/08/21 15:44:39 OSPF:       Attached Router 10.1.1.4
     # 2021/08/21 15:44:39 OSPF:       Attached Router 10.1.1.2
@@ -96,7 +98,7 @@ if __name__ == '__main__':
     ##    hostToP2pMapFromGraph[adv_router_id].update(link_attr_dd)
     for line in follow(open("/var/log/quagga/ospfd.log", 'r')):
     #for line in follow(open(f"/home/ubuntu/watchlog/tests/test{test_num}.txt", 'r')):
-        #print(line, end='')
+        print(line, end='')
         # line parsinf
         #if re_mew_msg.match(line):
         #    parsedChangedLSA = {}
@@ -200,11 +202,13 @@ if __name__ == '__main__':
                 # make stub object and add it to LSA obj automatically
                 stub_obj = STUBLSA(lsa_obj, tmp_router_lsa)
         # LSA2
-        if '0x80000028' in line:
-            print()
         if re_network_lsa_header.match(line):
             process_network_lsa = True
             # networkLsaDetails = {} # include all neighbors list
+        re_networkLsaNetworkMask_match = re_networkLsaNetworkMask.match(line)
+        if process_network_lsa and re_networkLsaNetworkMask_match:
+            network_mask = re_networkLsaNetworkMask_match.groupdict().get('network_mask', '')
+            lsa_obj.network_mask = network_mask
         re_networkLsaNeighbor_match = re_networkLsaNeighbor.match(line)
         if process_network_lsa and re_networkLsaNeighbor_match:
             # build a map with a list of DR neighbors
