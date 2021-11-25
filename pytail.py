@@ -98,10 +98,7 @@ if __name__ == '__main__':
     ##    hostToP2pMapFromGraph[adv_router_id].update(link_attr_dd)
     for line in follow(open("/var/log/quagga/ospfd.log", 'r')):
     #for line in follow(open(f"/home/ubuntu/watchlog/tests/test{test_num}.txt", 'r')):
-        print(line, end='')
-        # line parsinf
-        #if re_mew_msg.match(line):
-        #    parsedChangedLSA = {}
+        #print(line, end='')
         '''
         2021/08/12 18:30:24 OSPF: Link State Update
         2021/08/12 18:30:24 OSPF:   # LSAs 1
@@ -169,7 +166,8 @@ if __name__ == '__main__':
 
         # LSA1
         if re_router_lsa_header.match(line):
-            process_router_lsa = True
+            process_router_lsa = True # in order to make sure in re match statements below
+            lsa_obj.process_router_lsa = True 
         re_routerLsaLinkId_match = re_routerLsaLinkId.match(line)
         if process_router_lsa and re_routerLsaLinkId_match:
             tmp_router_lsa = {'link_id': re_routerLsaLinkId_match.groupdict().get('link_id', '')}
@@ -204,6 +202,7 @@ if __name__ == '__main__':
         # LSA2
         if re_network_lsa_header.match(line):
             process_network_lsa = True
+            lsa_obj.process_network_lsa = True
             # networkLsaDetails = {} # include all neighbors list
         re_networkLsaNetworkMask_match = re_networkLsaNetworkMask.match(line)
         if process_network_lsa and re_networkLsaNetworkMask_match:
@@ -223,15 +222,16 @@ if __name__ == '__main__':
         #print(line, end='')
         if re_spf.match(line):
             #print(f"OSPF topology changes is detected. LsuRouterLsaDetails:{LsuRouterLsaDetails}")
-            #if process_router_lsa and LsuRouterLsaDetails:
-            if process_router_lsa:
-                # check P2P links
-                newP2pOwnIpAddressSet, oldP2pOwnIpAddressSet, changedP2pOwnIpAddressSet = graph_obj.doGetNewOldDiffP2p(lsu_obj)
-                # check stub link
-                newStubNetworkSet, oldStubNetworkSet, changedMetricStubNetworkSet = graph_obj.doGetNewOldDiffStub(lsu_obj)
-                # change metrics on transit links are done after matching appropriate lsa type == 2
-                graph_obj.doGetDiffTransit(lsu_obj)
-                process_router_lsa = False # SPT can be printed several times after receiving msg, so proceed diff only one time
-            if process_network_lsa:
-                graph_obj.doGetNewOldLsa2Neighbors(lsa_obj)
-                process_network_lsa = False # SPT can be printed several times after receiving msg, so proceed diff only one time
+            for lsa_obj in lsu_obj.LSA_ll:
+                                
+                if lsa_obj.process_router_lsa:
+                    # check P2P links
+                    newP2pOwnIpAddressSet, oldP2pOwnIpAddressSet, changedP2pOwnIpAddressSet = graph_obj.doGetNewOldDiffP2pSingleLSA(lsa_obj)
+                    # check stub link
+                    newStubNetworkSet, oldStubNetworkSet, changedMetricStubNetworkSet = graph_obj.doGetNewOldDiffStubSingleLSA(lsa_obj)
+                    # broadcast network - type transit
+                    graph_obj.doGetDiffTransitSingleLSA(lsa_obj)
+                    process_router_lsa = False # SPT can be printed several times after receiving msg, so proceed diff only one time
+                if lsa_obj.process_network_lsa:
+                    graph_obj.doGetNewOldLsa2Neighbors(lsa_obj)
+                    process_network_lsa = False # SPT can be printed several times after receiving msg, so proceed diff only one time
