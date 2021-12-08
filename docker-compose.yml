@@ -1,0 +1,113 @@
+version: '3.2'
+
+services:
+  quagga:
+    build:
+      context: quagga
+      dockerfile: Dockerfile
+    image: quagga:1.0
+    container_name: quagga
+    restart: unless-stopped
+    environment:
+      ospfGreTunnelNetworkWithMask: "172.17.0.0/24" # 172.17.0.0/24
+      ospfGreTunnelAreaId: "0.0.0.1" # router ospf\n network 172.17.0.0/24 area 0.0.0.1
+    volumes:
+      #- type: bind
+      #  source: /var/log/quagga/ospfd.log
+      #  target: /var/log/quagga/ospfd.log
+      #  read_only: true
+      - type: volume
+        source: quagga_output
+        target: /var/log/quagga
+      - type: volume
+        source: watcher_output
+        target: /home/watcher/watcher/logs
+    cap_add:
+    - NET_ADMIN
+    - SYS_ADMIN
+    network_mode: "host"
+
+  watcher:
+    build:
+      context: watcher
+      dockerfile: Dockerfile
+    image: watcher:1.0
+    container_name: watcher
+    restart: unless-stopped
+    environment:
+      WATCHER_NAME: "demo-watcher"
+      QUAGGA_HOST: "127.0.0.1"
+      TOPOLOGRAPH_HOST: "172.25.80.1"
+      TOPOLOGRAPH_PORT: "8079"
+      TOPOLOGRAPH_USER_LOGIN: "your-login@domain"
+      TOPOLOGRAPH_USER_PASS: "your-pass" # do not forget to add IP address to Authorised Network list
+      WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log"
+    volumes:
+      #- type: bind
+      #  source: /var/log/quagga/ospfd.log
+      #  target: /var/log/quagga/ospfd.log
+      #  read_only: true
+      - type: volume
+        source: quagga_output
+        target: /var/log/quagga
+        read_only: true
+      - type: volume
+        source: watcher_output
+        target: /home/watcher/watcher/logs
+    network_mode: "host"
+    depends_on:
+      - quagga
+    #networks:
+    #  - internal
+  
+  logstash:
+    build:
+      context: logstash/
+      args:
+        LOGSTASH_OSS_VERSION: $LOGSTASH_OSS_VERSION
+    container_name: logstash
+    volumes:
+      - type: bind
+        source: ./logstash/config/logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
+        read_only: true
+      - type: bind
+        source: ./logstash/pipeline
+        target: /usr/share/logstash/pipeline
+        read_only: true
+      - type: volume
+        source: watcher_output
+        target: /home/watcher/watcher/logs
+        read_only: true
+    depends_on:
+      - logstash-index-creator
+    networks:
+      - internal
+  
+  logstash-index-creator:
+    image: watcher:1.0
+    container_name: logstash-index-creator
+    volumes:
+      - type: bind
+        source: ./logstash/index_template/create.py
+        target: /home/watcher/watcher/create.py
+        read_only: true
+    environment:
+      ELASTIC_URL: "http://172.25.80.1"
+      ELASTIC_USER_LOGIN: "elastic"
+      ELASTIC_USER_PASS: "changeme"
+    entrypoint: ["python", "create.py"]
+    depends_on:
+      - watcher
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  quagga_output:
+    driver: local
+  watcher_output:
+    driver: local
