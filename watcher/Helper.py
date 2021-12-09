@@ -3,8 +3,7 @@ import ipaddress
 import requests, os
 from requests.exceptions import Timeout
 from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticationException
-from typing import Optional, Set, Union, List, Annotated
-from copy import copy
+from typing import Optional, Set, Annotated
 import logging
 import logging.handlers
 
@@ -191,7 +190,6 @@ class Graph:
         """
         {'192.168.1.1': [{'subnet': '10.100.0.0/24', 'cost': 10, 'area': 1/-1}]}, for EXT LSA5 - area -1
         """
-        tmp_router_lsa_ll = []
         for adv_router_id, stub_attr_dd_ll in ospf_RID_to_stub_net.items():
             for stub_attr_dd in stub_attr_dd_ll:
                 self.add_stub(adv_router_id, stub_attr_dd['subnet'], stub_attr_dd['cost'])
