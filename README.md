@@ -62,3 +62,6 @@ cd ospfwatcher
 ```bash
 docker-compose up -d
 ```
+
+ ## Kibana settings
+ Index Templates have already been created. It's needed to check that logs are received by ELK via `Kibana/Stack Management/Index Management`. `watcher-costs-changes` and `watcher-updown-events` should be in a list. Then create Index Pattern `Kibana/Stack Management/Index Pattern` -> `Create index pattern`, specify `watcher-costs-changes` as Index pattern name -> Next -> choose `watcher_time` as timestamp. Because the connection between Watcher (with Logstash) can be lost, but watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
