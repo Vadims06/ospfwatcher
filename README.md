@@ -1,16 +1,26 @@
 # OSPF Topology Watcher
-OSPF Topology Watcher is like a Git for developers - it helps to track OSPF topology changes and shows it on the history diagram. Changes are exported by Logstash to Elastic Stack (ELK).  
+OSPF Topology Watcher is like a Git for developers - it helps to track OSPF topology changes and shows it on the history diagram. Changes are exported by Logstash to Elastic Stack (ELK). Components of the solution are wrapped into containers, so it can be increadebly fast to start it. The only thing is needed to configure manually - is GRE tunnel setup on the Linux host.  
 Logged topology changes:
 * OSPF neighbor adjacency Up/Down
 * OSPF link cost changes
 * OSPF networks appeared/disappeared from the topology
 
 ## Architecture
-![](https://github.com/Vadims06/ospfwatcher/blob/f218b754ac7b543ffe46f9bb7df9cba0caf7b5cb/docs/Architecture.png)
-
+![](https://github.com/Vadims06/ospfwatcher/blob/f218b754ac7b543ffe46f9bb7df9cba0caf7b5cb/docs/Architecture.png)  
+The Quagga container has `network_mode=host` so it sees the GRE tunnel, which is configured by Admin on the Linux Host.  
+### Functional Role
+![](https://github.com/Vadims06/ospfwatcher/blob/247bb4d330de762cfc4c3fd67135e5740ba8403c/docs/functional-watcher-role.png)
 ## Demo
 Click on the image in order zoom it.  
 ![](https://github.com/Vadims06/ospfwatcher/blob/ada2ca86df171ec5f1b550da821f0a8ca1cb1df4/docs/ospf-watcher-demo.gif)
+
+## Discovering OSPF logs in Kibana. Examples
+OSPF cost changes on links  
+![](https://github.com/Vadims06/ospfwatcher/blob/774ffe06131e932bd0d87b430010523d942a2342/docs/cost-changes-raw-logs.png)
+
+Logs if OSPF adjacency was Up/Down or any networks appeared/disappeared.  
+![](https://github.com/Vadims06/ospfwatcher/blob/774ffe06131e932bd0d87b430010523d942a2342/docs/host-updown-raw-logs.png)
+
 ## How to setup
 1. Choose a Linux host with Docker installed
 2. Setup Topolograph:  
@@ -39,4 +49,16 @@ tunnel mode gre
 tunnel source <router-ip>
 tunnel destination <host-ip>
 ip ospf network type point-to-point
+```
+Set GRE tunnel network where <GRE tunnel ip address> is placed to `quagga/config/ospfd.conf`
+ 
+# How to start
+```bash
+git clone https://github.com/Vadims06/ospfwatcher.git
+cd ospfwatcher
+```
+* Fill environment variables in docker-compose.yml file
+* Start docker-compose  
+```bash
+docker-compose up -d
 ```
