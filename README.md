@@ -9,6 +9,7 @@ Logged topology changes:
 ![](https://github.com/Vadims06/ospfwatcher/blob/f218b754ac7b543ffe46f9bb7df9cba0caf7b5cb/docs/Architecture.png)
 
 ## Demo
+Click on the image in order zoom it.  
 ![](https://github.com/Vadims06/ospfwatcher/blob/ada2ca86df171ec5f1b550da821f0a8ca1cb1df4/docs/ospf-watcher-demo.gif)
 ## How to setup
 1. Choose a Linux host with Docker installed
