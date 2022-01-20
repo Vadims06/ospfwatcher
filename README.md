@@ -34,6 +34,7 @@ Logs if OSPF adjacency was Up/Down or any networks appeared/disappeared.
 * if you already have ELK instance running, so just remember variables below
 * if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose
 * Remember `ELASTIC_URL`, `ELASTIC_USER_LOGIN`, `ELASTIC_USER_PASS`  
+
 4. Setup GRE tunnel from the host to a network device  
 ```bash
 sudo modprobe ip_gre
@@ -50,8 +51,8 @@ tunnel source <router-ip>
 tunnel destination <host-ip>
 ip ospf network type point-to-point
 ```
-Set GRE tunnel network where <GRE tunnel ip address> is placed to `quagga/config/ospfd.conf`
- 
+Set GRE tunnel network where <GRE tunnel ip address> is placed to `quagga/config/ospfd.conf`  
+Set ELASTIC IP in logstash/pipeline/logstash.conf file which is in charge of setting config for exporting logs.  
 # How to start
 ```bash
 git clone https://github.com/Vadims06/ospfwatcher.git
@@ -65,3 +66,6 @@ docker-compose up -d
 
  ## Kibana settings
  Index Templates have already been created. It's needed to check that logs are received by ELK via `Kibana/Stack Management/Index Management`. `watcher-costs-changes` and `watcher-updown-events` should be in a list. Then create Index Pattern `Kibana/Stack Management/Index Pattern` -> `Create index pattern`, specify `watcher-costs-changes` as Index pattern name -> Next -> choose `watcher_time` as timestamp. Because the connection between Watcher (with Logstash) can be lost, but watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
+ 
+ ### License
+ The functionality was tested using Basic ELK license.  
