@@ -34,6 +34,7 @@ Logs if OSPF adjacency was Up/Down or any networks appeared/disappeared.
 * if you already have ELK instance running, so just remember variables below
 * if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose
 * Remember `ELASTIC_URL`, `ELASTIC_USER_LOGIN`, `ELASTIC_USER_PASS`  
+* Put your variables into `logstash/pipeline/logstash.conf` and `docker-compose.yml` file [needs to be impoved]
 
 4. Setup GRE tunnel from the host to a network device  
 ```bash
