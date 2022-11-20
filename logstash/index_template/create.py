@@ -1,7 +1,9 @@
 import requests
 import json, os
 if __name__ == '__main__':
-    ELASTIC_URL = os.getenv('ELASTIC_URL', 'http://172.25.80.1')
+    ELASTIC_IP = os.getenv('ELASTIC_IP') if os.getenv('ELASTIC_IP') else 'http://172.25.80.1'
+    print(f'ELASTIC_IP:{ELASTIC_IP}')
+    ELASTIC_URL = 'http://' + ELASTIC_IP
     ELASTIC_USER_LOGIN = os.getenv('ELASTIC_USER_LOGIN', 'elastic')
     ELASTIC_USER_PASS = os.getenv('ELASTIC_USER_PASS', 'changeme')
     headers = {'Content-Type':'application/json'}
@@ -13,3 +15,9 @@ if __name__ == '__main__':
     for indexTemplateName, indexTemplateSettings in indexTempateNameToSettings.items():
         r = requests.put(f"{ELASTIC_URL}:9200/_index_template/{indexTemplateName}", auth=({ELASTIC_USER_LOGIN}, {ELASTIC_USER_PASS}), headers=headers, data=json.dumps(indexTemplateSettings))
         print(r.json())
+        if not r.ok:
+            reply_dd = r.json()
+            if isinstance(reply_dd, dict) and "unable to authenticate user" in reply_dd.get('error', {}).get('reason', ''):
+                print(f"{'*'*10} Error {'*'*10}")
+                print(f"The script was not able to create Index Templates because it couldn't authenticate in ELK. In most cases xpack.security.enabled: true is a reason, because it requires certificate of ELK. ")
+                print(f"{'*'*10} Error {'*'*10}")

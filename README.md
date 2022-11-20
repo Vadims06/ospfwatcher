@@ -24,19 +24,24 @@ Logs if OSPF adjacency was Up/Down or any networks appeared/disappeared.
 ## How to setup
 1. Choose a Linux host with Docker installed
 2. Setup Topolograph:  
-* launch your own Topolograph on docker using [topolograph-docker](https://github.com/Vadims06/topolograph-docker)
-* or make sure you have a connection to the public https://topolograph.com  
-** Remember `TOPOLOGRAPH_HOST`, `TOPOLOGRAPH_PORT` variables  
-2.2. Create a user for API authentication using Local Registration form  
-** Remember `TOPOLOGRAPH_USER_LOGIN`, `TOPOLOGRAPH_USER_PASS` variables  
-2.3. Add your IP address in API/Authorised source IP ranges  
+* launch your own Topolograph on docker using [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or make sure you have a connection to the public https://topolograph.com  
+> **Note**  
+> In case of using external topolograph.com create a user for API authentication using Local Registration form on the site, add your IP address in `API/Authorised source IP ranges` on the site and write down the following variables (in case of using Docker version - left default variables and go to the next step):    
+> * `TOPOLOGRAPH_HOST`
+> * `TOPOLOGRAPH_PORT`
+> * `TOPOLOGRAPH_USER_LOGIN`
+> * `TOPOLOGRAPH_USER_PASS`         
 3. Setup ELK  
-* if you already have ELK instance running, so just remember variables below
-* if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose
-* Remember `ELASTIC_URL`, `ELASTIC_USER_LOGIN`, `ELASTIC_USER_PASS`  
-* Put your variables into `logstash/pipeline/logstash.conf` and `docker-compose.yml` file [needs to be impoved]
+* if you already have ELK instance running, so just remember `ELASTIC_IP` for filling env file later. Currently additional manual configuration is needed for creation Index Templates, because the demo script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `ospfwatcher/logstash/index_template/create.py`. Fill free to edit such a script for your needs.
+* if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in docker-elk/elasticsearch/config/elasticsearch.yml  
+```
+xpack.license.self_generated.type: basic
+xpack.security.enabled: false
+```  
 
 4. Setup GRE tunnel from the host to a network device  
+> **Note**  
+> You can skip this step and run ospfwatcher in `test_mode`, so test LSDB from the file will be taken and test changes (loss of adjancency and change of OSPF metric) will be posted in ELK  
 ```bash
 sudo modprobe ip_gre
 sudo ip tunnel add tun0 mode gre remote <router-ip> local <host-ip> dev eth0 ttl 255
@@ -44,6 +49,9 @@ sudo ip address add <GRE tunnel ip address> dev tun0
 sudo ip link set tun0 up
 ```
 5. Setup GRE tunnel from the network device to the host. An example for Cisco
+> **Note**  
+> You can skip this step and run ospfwatcher in `test_mode`, so test LSDB from the file will be taken and test changes (loss of adjancency and change of OSPF metric) will be posted in ELK  
+
 ```bash
 interface gigabitether0/1
 ip address <GRE tunnel ip address>
@@ -53,20 +61,41 @@ tunnel destination <host-ip>
 ip ospf network type point-to-point
 ```
 Set GRE tunnel network where <GRE tunnel ip address> is placed to `quagga/config/ospfd.conf`  
-Set ELASTIC IP in logstash/pipeline/logstash.conf file which is in charge of setting config for exporting logs.  
+
 # How to start
 ```bash
 git clone https://github.com/Vadims06/ospfwatcher.git
 cd ospfwatcher
 ```
-* Fill environment variables in docker-compose.yml file
-* Start docker-compose  
+Set variables in `.env` file:    
+ * ELASTIC_IP=192.168.0.10 - *set the IP address of your host, where the docker is hosted (if you run all demo on a single machine), do not put `localhost`, because ELK, Topolograph and OSPF Watcher run in their private network space*
+ * TOPOLOGRAPH_HOST=192.168.0.10 - *same logic here*
+ * TEST_MODE='True' - if mode is `test`, a demo LSDB from the file will be taken, not from Quagga  
+
+Default values for your information:  
+ * ELASTIC_PORT=9200
+ * ELASTIC_USER_LOGIN=elastic
+ * ELASTIC_USER_PASS=changeme
+ * TOPOLOGRAPH_PORT=8080
+ * TOPOLOGRAPH_WEB_API_USERNAME_EMAIL=ospf@topolograph.com
+ * TOPOLOGRAPH_WEB_API_PASSWORD=ospf  
+
+Start docker-compose  
 ```bash
 docker-compose up -d
 ```
 
  ## Kibana settings
- Index Templates have already been created. It's needed to check that logs are received by ELK via `Kibana/Stack Management/Index Management`. `watcher-costs-changes` and `watcher-updown-events` should be in a list. Then create Index Pattern `Kibana/Stack Management/Index Pattern` -> `Create index pattern`, specify `watcher-costs-changes` as Index pattern name -> Next -> choose `watcher_time` as timestamp. Because the connection between Watcher (with Logstash) can be lost, but watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
+ 1. **Index Templates**  have already been created. It's needed to check that logs are received by ELK via `Stack Management/ Kibana/ Stack Management/ Index Management`. `watcher-costs-changes` and `watcher-updown-events` should be in a list.  
+  ![](https://github.com/Vadims06/ospfwatcher/blob/57a6a82eafe10cedcbf3f3e70ddf69397401f1ca/docs/kibana_index_template.png)  
+ 2. Create **Index Pattern** for old ELK `Stack Management/ Kibana/ Stack Management/ Index Pattern` -> `Create index pattern` or **Data View** in new ELK `Stack Management/ Kibana/ Stack Management/ Data Views` and specify `watcher-updown-events` as Index pattern name -> Next -> choose `watcher_time` as timestamp.  
+ ![](https://github.com/Vadims06/ospfwatcher/blob/57a6a82eafe10cedcbf3f3e70ddf69397401f1ca/docs/kibana_data_view.png)  
+ Repeat the step for creation `watcher-costs-changes`  
+ Because the connection between Watcher (with Logstash) can be lost, but watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added 
+ to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
  
+ ### Minimum Logstash version
+ 7.14.0, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281)  
+
  ### License
  The functionality was tested using Basic ELK license.  

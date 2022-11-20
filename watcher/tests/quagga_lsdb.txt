@@ -1,0 +1,427 @@
+       OSPF Router with ID (192.168.100.100)
+
+
+                Router Link States (Area 0.0.0.1)
+
+  LS age: 1472
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  Flags: 0x0
+  LS Type: router-LSA
+  Link State ID: 10.1.1.1
+  Advertising Router: 10.1.1.1
+  LS Seq Number: 8000000a
+  Checksum: 0xbbdd
+  Length: 120
+   Number of Links: 8
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.1.113.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.1.112.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.1.111.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.1.110.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.1.220.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: another Router (point-to-point)
+     (Link ID) Neighboring Router ID: 10.1.1.4
+     (Link Data) Router Interface address: 10.1.14.1
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: Stub Network
+     (Link ID) Net: 10.1.14.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.13.3
+     (Link Data) Router Interface address: 10.1.13.1
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+
+  LS age: 1208
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  Flags: 0x0
+  LS Type: router-LSA
+  Link State ID: 10.1.1.2
+  Advertising Router: 10.1.1.2
+  LS Seq Number: 8000000b
+  Checksum: 0x4b9b
+  Length: 156
+   Number of Links: 11
+
+    Link connected to: Stub Network
+     (Link ID) Net: 10.1.1.2
+     (Link Data) Network Mask: 255.255.255.255
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.1.213.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.1.212.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.1.211.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.1.210.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: Stub Network
+     (Link ID) Net: 10.1.101.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: Stub Network
+     (Link ID) Net: 192.1.220.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: Stub Network
+     (Link ID) Net: 10.1.12.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.24.4
+     (Link Data) Router Interface address: 10.1.24.2
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.23.3
+     (Link Data) Router Interface address: 10.1.23.2
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.123.23
+     (Link Data) Router Interface address: 10.1.123.1
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+
+  LS age: 1351
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  Flags: 0x0
+  LS Type: router-LSA
+  Link State ID: 10.1.1.3
+  Advertising Router: 10.1.1.3
+  LS Seq Number: 8000000a
+  Checksum: 0xe3bb
+  Length: 132
+   Number of Links: 9
+
+    Link connected to: Stub Network
+     (Link ID) Net: 10.1.1.3
+     (Link Data) Network Mask: 255.255.255.255
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: Stub Network
+     (Link ID) Net: 172.35.35.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: Stub Network
+     (Link ID) Net: 172.19.35.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1000
+
+    Link connected to: another Router (point-to-point)
+     (Link ID) Neighboring Router ID: 10.1.1.4
+     (Link Data) Router Interface address: 172.17.2.3
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1000
+
+    Link connected to: Stub Network
+     (Link ID) Net: 172.17.2.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1000
+
+    Link connected to: Stub Network
+     (Link ID) Net: 172.17.1.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1000
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.34.4
+     (Link Data) Router Interface address: 10.1.34.3
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.23.3
+     (Link Data) Router Interface address: 10.1.23.3
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.13.3
+     (Link Data) Router Interface address: 10.1.13.3
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+
+  LS age: 1187
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  Flags: 0x0
+  LS Type: router-LSA
+  Link State ID: 10.1.1.4
+  Advertising Router: 10.1.1.4
+  LS Seq Number: 8000000e
+  Checksum: 0xa90b
+  Length: 144
+   Number of Links: 10
+
+    Link connected to: Stub Network
+     (Link ID) Net: 10.1.1.4
+     (Link Data) Network Mask: 255.255.255.255
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1
+
+    Link connected to: another Router (point-to-point)
+     (Link ID) Neighboring Router ID: 10.1.1.3
+     (Link Data) Router Interface address: 172.17.2.4
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1000
+
+    Link connected to: Stub Network
+     (Link ID) Net: 172.17.2.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1000
+
+    Link connected to: Stub Network
+     (Link ID) Net: 172.17.1.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1000
+
+    Link connected to: another Router (point-to-point)
+     (Link ID) Neighboring Router ID: 192.168.100.100
+     (Link Data) Router Interface address: 172.17.0.1
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1000
+
+    Link connected to: Stub Network
+     (Link ID) Net: 172.17.0.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 1000
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.34.4
+     (Link Data) Router Interface address: 10.1.34.4
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.24.4
+     (Link Data) Router Interface address: 10.1.24.4
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: another Router (point-to-point)
+     (Link ID) Neighboring Router ID: 10.1.1.1
+     (Link Data) Router Interface address: 10.1.14.4
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+    Link connected to: Stub Network
+     (Link ID) Net: 10.1.14.0
+     (Link Data) Network Mask: 255.255.255.0
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+
+  LS age: 1129
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  Flags: 0x0
+  LS Type: router-LSA
+  Link State ID: 10.1.123.23
+  Advertising Router: 10.1.123.23
+  LS Seq Number: 80000008
+  Checksum: 0xfead
+  Length: 36
+   Number of Links: 1
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.123.23
+     (Link Data) Router Interface address: 10.1.123.23
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+
+  LS age: 1097
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  Flags: 0x0
+  LS Type: router-LSA
+  Link State ID: 10.1.123.24
+  Advertising Router: 10.1.123.24
+  LS Seq Number: 80000008
+  Checksum: 0xfcac
+  Length: 36
+   Number of Links: 1
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 10.1.123.23
+     (Link Data) Router Interface address: 10.1.123.24
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+
+  LS age: 264
+  Options: 0x2  : *|-|-|-|-|-|E|-
+  LS Flags: 0x3
+  Flags: 0x0
+  LS Type: router-LSA
+  Link State ID: 192.168.100.100
+  Advertising Router: 192.168.100.100
+  LS Seq Number: 80000009
+  Checksum: 0x3069
+  Length: 36
+   Number of Links: 1
+
+    Link connected to: a Transit Network
+     (Link ID) Designated Router address: 172.17.0.100
+     (Link Data) Router Interface address: 172.17.0.100
+      Number of TOS metrics: 0
+       TOS 0 Metric: 10
+
+
+ubuntu# sh ip ospf database network
+
+       OSPF Router with ID (192.168.100.100)
+
+
+                Net Link States (Area 0.0.0.1)
+
+  LS age: 1360
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  LS Type: network-LSA
+  Link State ID: 10.1.13.3 (address of Designated Router)
+  Advertising Router: 10.1.1.3
+  LS Seq Number: 80000006
+  Checksum: 0xe806
+  Length: 32
+  Network Mask: /24
+        Attached Router: 10.1.1.3
+        Attached Router: 10.1.1.1
+
+  LS age: 1359
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  LS Type: network-LSA
+  Link State ID: 10.1.23.3 (address of Designated Router)
+  Advertising Router: 10.1.1.3
+  LS Seq Number: 80000006
+  Checksum: 0x885b
+  Length: 32
+  Network Mask: /24
+        Attached Router: 10.1.1.3
+        Attached Router: 10.1.1.2
+
+  LS age: 1450
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  LS Type: network-LSA
+  Link State ID: 10.1.24.4 (address of Designated Router)
+  Advertising Router: 10.1.1.4
+  LS Seq Number: 80000006
+  Checksum: 0x7768
+  Length: 32
+  Network Mask: /24
+        Attached Router: 10.1.1.4
+        Attached Router: 10.1.1.2
+
+  LS age: 1450
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  LS Type: network-LSA
+  Link State ID: 10.1.34.4 (address of Designated Router)
+  Advertising Router: 10.1.1.4
+  LS Seq Number: 80000006
+  Checksum: 0x17bd
+  Length: 32
+  Network Mask: /24
+        Attached Router: 10.1.1.4
+        Attached Router: 10.1.1.3
+
+  LS age: 1135
+  Options: 0x22 : *|-|DC|-|-|-|E|-
+  LS Flags: 0x6
+  LS Type: network-LSA
+  Link State ID: 10.1.123.23 (address of Designated Router)
+  Advertising Router: 10.1.123.23
+  LS Seq Number: 80000007
+  Checksum: 0x4664
+  Length: 36
+  Network Mask: /24
+        Attached Router: 10.1.123.23
+        Attached Router: 10.1.1.2
+        Attached Router: 10.1.123.24
+
+  LS age: 1472
+  Options: 0x2  : *|-|-|-|-|-|E|-
+  LS Flags: 0x3
+  LS Type: network-LSA
+  Link State ID: 172.17.0.100 (address of Designated Router)
+  Advertising Router: 192.168.100.100
+  LS Seq Number: 80000006
+  Checksum: 0x1ba3
+  Length: 32
+  Network Mask: /24
+        Attached Router: 10.1.1.4
+        Attached Router: 192.168.100.100

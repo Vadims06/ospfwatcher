@@ -151,7 +151,7 @@ class Graph:
 
         # printing
         self.mformater = logging.Formatter('%(asctime)s,%(name)s,%(message)s', datefmt="%Y-%m-%dT%H:%M:%SZ") #'%Y-%m-%d %H:%M:%S'
-        self.logfile = os.getenv('WATCHER_LOGFILE')
+        self.logfile = os.getenv('WATCHER_LOGFILE', os.path.join(os.path.dirname(__file__), 'tests/quagga_lsdb.txt'))
         self.hostUpDownLog_str = "host: {neighborName} {newStateUpDown}, detected by: {lsa_adv_router_id}"
         self.p2pUpDownLog_str = "{new_old} p2p neighbor: {neighborName}, detected by: {lsa_adv_router_id}"
         self.StubNetLog_str = "{new_old} stub network: {stubNetwork}, detected by: {lsa_adv_router_id}"
@@ -670,7 +670,7 @@ class QConnecter:
 class GraphFromTopolograph(Graph):
 
     def __init__(self) -> None:
-        self._login, self._pass = os.getenv('TOPOLOGRAPH_USER_LOGIN'), os.getenv('TOPOLOGRAPH_USER_PASS')
+        self._login, self._pass = os.getenv('TOPOLOGRAPH_WEB_API_USERNAME_EMAIL'), os.getenv('TOPOLOGRAPH_WEB_API_PASSWORD')
         self._host, self._port = os.getenv('TOPOLOGRAPH_HOST'), os.getenv('TOPOLOGRAPH_PORT')
         if not self._login and not self._pass:
             raise ValueError('credentials for connection to Topolograph are not set')
@@ -679,6 +679,10 @@ class GraphFromTopolograph(Graph):
     def init_graph(self):
         quagga_conn = QConnecter()
         lsdb_output = quagga_conn.get_lsdb_output()
+        if os.getenv('TEST_MODE', '') == 'True':
+            with open(os.path.join(os.path.dirname(__file__), 'tests/quagga_lsdb.txt')) as f:
+                lsdb_output = f.read()
+        print(f"lsdb_output:{lsdb_output[:200]}")
         if not lsdb_output:
             raise ValueError('Cannot get LSDB from Quagga Watcher')
         try:
@@ -691,4 +695,9 @@ class GraphFromTopolograph(Graph):
             quagga_conn.do_enable_ospf_debug()
             super().__init__(**r_post.json())
         else:
-            raise ValueError(f"{r_post.reason}, {r_post.json().get('detail', '')}")
+            _error = r_post.json()
+            try:
+                _error = _error.get('detail', '')
+            except AttributeError:
+                pass
+            raise ValueError(f"{r_post.reason}, {_error}")

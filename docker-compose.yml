@@ -12,10 +12,6 @@ services:
       ospfGreTunnelNetworkWithMask: "172.17.0.0/24" # 172.17.0.0/24
       ospfGreTunnelAreaId: "0.0.0.1" # router ospf\n network 172.17.0.0/24 area 0.0.0.1
     volumes:
-      #- type: bind
-      #  source: /var/log/quagga/ospfd.log
-      #  target: /var/log/quagga/ospfd.log
-      #  read_only: true
       - type: volume
         source: quagga_output
         target: /var/log/quagga
@@ -31,22 +27,18 @@ services:
     build:
       context: watcher
       dockerfile: Dockerfile
-    image: watcher:1.0
     container_name: watcher
     restart: unless-stopped
     environment:
       WATCHER_NAME: "demo-watcher"
       QUAGGA_HOST: "127.0.0.1"
-      TOPOLOGRAPH_HOST: "172.25.80.1"
-      TOPOLOGRAPH_PORT: "8079"
-      TOPOLOGRAPH_USER_LOGIN: "your-login@domain"
-      TOPOLOGRAPH_USER_PASS: "your-pass" # do not forget to add IP address to Authorised Network list
+      TOPOLOGRAPH_HOST: $TOPOLOGRAPH_HOST
+      TOPOLOGRAPH_PORT: $TOPOLOGRAPH_PORT
+      TOPOLOGRAPH_WEB_API_USERNAME_EMAIL: $TOPOLOGRAPH_WEB_API_USERNAME_EMAIL
+      TOPOLOGRAPH_WEB_API_PASSWORD: $TOPOLOGRAPH_WEB_API_PASSWORD # do not forget to add IP address to Authorised Network list
       WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log"
+      TEST_MODE: $TEST_MODE
     volumes:
-      #- type: bind
-      #  source: /var/log/quagga/ospfd.log
-      #  target: /var/log/quagga/ospfd.log
-      #  read_only: true
       - type: volume
         source: quagga_output
         target: /var/log/quagga
@@ -57,8 +49,7 @@ services:
     network_mode: "host"
     depends_on:
       - quagga
-    #networks:
-    #  - internal
+
   
   logstash:
     build:
@@ -79,6 +70,11 @@ services:
         source: watcher_output
         target: /home/watcher/watcher/logs
         read_only: true
+    environment:
+      ELASTIC_USER_LOGIN: $ELASTIC_USER_LOGIN
+      ELASTIC_USER_PASS: $ELASTIC_USER_PASS
+      ELASTIC_IP: $ELASTIC_IP
+      ELASTIC_PORT: $ELASTIC_PORT
     depends_on:
       - logstash-index-creator
     networks:
@@ -93,9 +89,10 @@ services:
         target: /home/watcher/watcher/create.py
         read_only: true
     environment:
-      ELASTIC_URL: "http://172.25.80.1"
-      ELASTIC_USER_LOGIN: "elastic"
-      ELASTIC_USER_PASS: "changeme"
+      ELASTIC_USER_LOGIN: $ELASTIC_USER_LOGIN
+      ELASTIC_USER_PASS: $ELASTIC_USER_PASS
+      ELASTIC_IP: $ELASTIC_IP
+      ELASTIC_PORT: $ELASTIC_PORT
     entrypoint: ["python", "create.py"]
     depends_on:
       - watcher

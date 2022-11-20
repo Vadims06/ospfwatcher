@@ -16,13 +16,15 @@ RUN pip install -r requirements.txt && \
     adduser --system --uid $USER_ID --ingroup watcher --disabled-password watcher
 
 RUN touch watcher.log && \ 
-    chown watcher:watcher watcher.log
+    chown watcher:watcher watcher.log && \ 
+    mkdir /home/watcher/watcher/tests
 
 #USER www
 
 # add python Watcher files 
 COPY ./Helper.py /home/watcher/watcher/Helper.py
 COPY ./pytail.py /home/watcher/watcher/pytail.py
+COPY tests /home/watcher/watcher/tests
 
 
 

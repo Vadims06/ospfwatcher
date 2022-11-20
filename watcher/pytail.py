@@ -61,7 +61,11 @@ if __name__ == '__main__':
     process_network_lsa = False
 
     graph_obj = GraphFromTopolograph()
-    for line in follow(open("/var/log/quagga/ospfd.log", 'r')):
+    OSPFD_LOG_FILE_DIR = "/var/log/quagga/ospfd.log"
+    if os.getenv('TEST_MODE', '') == 'True':
+        OSPFD_LOG_FILE_DIR = os.path.join(os.path.dirname(__file__), 'tests/test25.txt')
+    
+    for line in follow(open(OSPFD_LOG_FILE_DIR, 'r')):
         #print(line, end='')
         '''
         2021/08/12 18:30:24 OSPF: Link State Update
