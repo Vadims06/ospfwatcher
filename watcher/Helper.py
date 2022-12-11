@@ -695,9 +695,13 @@ class GraphFromTopolograph(Graph):
             quagga_conn.do_enable_ospf_debug()
             super().__init__(**r_post.json())
         else:
-            _error = r_post.json()
             try:
+                print(f"r_post.text")
+                _error = r_post.json()
                 _error = _error.get('detail', '')
             except AttributeError:
-                pass
+                print(f"{r_post.reason}, {_error}")
+            except ValueError:
+                _error = r_post.text
+                print(f"{_error}")
             raise ValueError(f"{r_post.reason}, {_error}")

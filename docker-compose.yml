@@ -75,6 +75,11 @@ services:
       ELASTIC_USER_PASS: $ELASTIC_USER_PASS
       ELASTIC_IP: $ELASTIC_IP
       ELASTIC_PORT: $ELASTIC_PORT
+      MONGODB_DATABASE: $MONGODB_DATABASE
+      MONGODB_USERNAME: $MONGODB_USERNAME
+      MONGODB_PASSWORD: $MONGODB_PASSWORD
+      MONGODB_IP: $MONGODB_IP
+      MONGODB_PORT: $MONGODB_PORT
     depends_on:
       - logstash-index-creator
     networks:
@@ -101,7 +106,8 @@ services:
 
 networks:
   internal:
-    driver: bridge
+    external:
+      name: topolograph_backend
 
 volumes:
   quagga_output:
