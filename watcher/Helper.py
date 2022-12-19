@@ -129,9 +129,19 @@ def ifLSAcompleted(method):
     return inner
 
 class Graph:
-    def __init__(self, p2pOwnRidToOwnIpAddressDdDdMap, p2pOwnIpAddressWithRemoteNeighborRidMap, ospf_RID_to_stub_net, DrIpAddressToNeighborsRidSetMap, OwnRidToOwnIpToDrIpAddressToMetricMap, TranstiNetworksSet) -> None:
+    def __init__(self, p2pOwnRidToOwnIpAddressDdDdMap, p2pOwnIpAddressWithRemoteNeighborRidMap, ospf_RID_to_stub_net, DrIpAddressToNeighborsRidSetMap, OwnRidToOwnIpToDrIpAddressToMetricMap, TranstiNetworksSet, graph_time) -> None:
         """
         ospf_RID_to_stub_net # {'192.168.1.1': [{'subnet': '10.100.0.0/24', 'cost': 10, 'area': 1/-1}]}, for EXT LSA5 - area -1
+        Log the following actions:
+        "event_name": "host" 
+        "event_status": "up”/“down”
+
+        "event_name": "metric", 
+        "event_status": "changed",
+        "subnet_type": "p2p”/"stub”/"transit"
+
+        "event_name": "network", 
+        "event_status": "up"/“down”
         """
         self.p2pOwnRidToOwnIpAddressDdDdMap: dict[RID, dict[IPAddress, Cost]] = p2pOwnRidToOwnIpAddressDdDdMap # {'10.100.0.1': {'192.168.100.4': 10, '192.168.101.4': 20}}. '10.100.0.1' has two interfaces to p2p neighbors via own interfaces '192.168.100.4' and '192.168.101.4' with cost 10 and 20 respectivelly
         self.p2pOwnIpAddressWithRemoteNeighborRidMap: dict[IPAddress, RID] = p2pOwnIpAddressWithRemoteNeighborRidMap # {'192.168.100.4': '10.100.0.2', '192.168.101.4': '10.100.0.3'} via own interface with IP 192.168.100.4 - OSPF neighbor with RID 10.100.0.2
@@ -146,12 +156,15 @@ class Graph:
         self.DrIpAddressToNeighborsRidSetMap: dict[IPAddress, Set[RID]] = {drIpAddress:set(NeighborsRidList) for drIpAddress, NeighborsRidList in DrIpAddressToNeighborsRidSetMap.items()}
         self.OwnRidToOwnIpToDrIpAddressToMetricMap: dict[RID, dict[IPAddress, dict[IPAddress, Cost]]] = OwnRidToOwnIpToDrIpAddressToMetricMap # {'10.1.1.4': {'192.168.123.24': {'192.168.123.1': 777}}}. the router with OSPF ID 10.1.1.4 has DR IP address 192.168.123.1 over his own IP 192.168.123.24. It's needed in order to distinguish DRs on different interfaces
         self.TranstiNetworksSet: Set[NETWORK] = set(TranstiNetworksSet) # from API call we get a list, because a set is not json serializable
+        
+        # link between graph DB and changes DB
+        self.graph_time = graph_time
         ## Calculated
         self.ipAddressToRidMap = {ip:rid for rid, ips_dd in self.OwnRidToOwnIpToDrIpAddressToMetricMap.items() for ip in ips_dd}
 
         # printing
         self.mformater = logging.Formatter('%(asctime)s,%(name)s,%(message)s', datefmt="%Y-%m-%dT%H:%M:%SZ") #'%Y-%m-%d %H:%M:%S'
-        self.logfile = os.getenv('WATCHER_LOGFILE', os.path.join(os.path.dirname(__file__), 'tests/quagga_lsdb.txt'))
+        self.logfile = os.getenv('WATCHER_LOGFILE', os.path.join(os.path.dirname(__file__), 'tests/watcher.log'))
         self.hostUpDownLog_str = "host: {neighborName} {newStateUpDown}, detected by: {lsa_adv_router_id}"
         self.p2pUpDownLog_str = "{new_old} p2p neighbor: {neighborName}, detected by: {lsa_adv_router_id}"
         self.StubNetLog_str = "{new_old} stub network: {stubNetwork}, detected by: {lsa_adv_router_id}"
@@ -245,14 +258,18 @@ class Graph:
             '''
         if transit_lsa.metric != saved_metric_to_dr:
             if int(saved_metric_to_dr) != 0: # when adjancecy is up, saved metric == 0
-                print(f"changed transit metric. {self.ipAddressToRidMap.get(transit_lsa.ownIPAddress, '')}-{self.ipAddressToRidMap.get(transit_lsa.drIpAddress, '')} Old: {saved_metric_to_dr}, new: {transit_lsa.metric}. Detected by: {lsa_obj.adv_router_id}")
+                print(f"changed transit metric. {self.ipAddressToRidMap.get(transit_lsa.ownIPAddress, '')}-{self.ipAddressToRidMap.get(transit_lsa.drIpAddress, '')} Old: {saved_metric_to_dr}, new: {transit_lsa.metric}. Detected by: {lsa_obj.adv_router_id}, shared_subnet_remote_neighbors_ids:{'_'.join(self.DrIpAddressToNeighborsRidSetMap.get(transit_lsa.drIpAddress, {lsa_obj.adv_router_id}))}")
                 #"watcher_time","watcher_name"||"event_name", "event_object", "event_status", "old_cost", "new_cost", "event_detected_by"
+                # _ is used in shared_subnet_remote_neighbors_ids because comma breaks csv parsing
                 self.logger_file.info(self.prepareCsv({"event_name": "metric", 
                                                         "event_object": transit_lsa.ownIPAddress, 
                                                         "event_status": "changed",
                                                         "old_cost": f"old_cost:{saved_metric_to_dr}",
                                                         "new_cost": f"new_cost:{transit_lsa.metric}",
-                                                        "event_detected_by": lsa_obj.adv_router_id
+                                                        "event_detected_by": lsa_obj.adv_router_id,
+                                                        "subnet_type": "transit",
+                                                        "shared_subnet_remote_neighbors_ids": f"{'_'.join(self.DrIpAddressToNeighborsRidSetMap.get(transit_lsa.drIpAddress, {lsa_obj.adv_router_id}))}",
+                                                        "graph_time": self.graph_time
                                                         }))
             if not self.OwnRidToOwnIpToDrIpAddressToMetricMap.get(lsa_obj.adv_router_id, {}).get(transit_lsa.ownIPAddress):
                 pass
@@ -303,7 +320,8 @@ class Graph:
             self.logger_file.info(self.prepareCsv({"event_name": "host", 
                                                     "event_object": lsa_obj.p2pOwnIpAddressWithRemoteNeighborRidMap[newP2pOwnIpAddress], 
                                                     "event_status": "up", 
-                                                    "event_detected_by": lsa_obj.adv_router_id
+                                                    "event_detected_by": lsa_obj.adv_router_id,
+                                                    "graph_time": self.graph_time
                                                     }))
             # add it to Graph
             self.add_p2p_neighbor(lsa_obj, newP2pOwnIpAddress)
@@ -319,7 +337,8 @@ class Graph:
             self.logger_file.info(self.prepareCsv({"event_name": "host", 
                                                     "event_object": oldNeighborRid, 
                                                     "event_status": "down", 
-                                                    "event_detected_by": lsa_obj.adv_router_id
+                                                    "event_detected_by": lsa_obj.adv_router_id,
+                                                    "graph_time": self.graph_time
                                                     }))
             '''
             # clear all stub nets of down node
@@ -341,7 +360,10 @@ class Graph:
                                                         "event_status": "changed",
                                                         "old_cost": f"old_cost:{p2pMetricFromGraph}",
                                                         "new_cost": f"new_cost:{p2pMetricFromLSA}",
-                                                        "event_detected_by": lsa_obj.adv_router_id
+                                                        "event_detected_by": lsa_obj.adv_router_id,
+                                                        "subnet_type": "p2p",
+                                                        "shared_subnet_remote_neighbors_ids": f"{self.p2pOwnIpAddressWithRemoteNeighborRidMap[commonP2pOwnIpAddress]}",
+                                                        "graph_time": self.graph_time
                                                         }))
                 self.edit_metric_p2p_neighbor(lsa_obj, commonP2pOwnIpAddress, p2pMetricFromLSA)
                 changedP2pOwnIpAddressSet.add(commonP2pOwnIpAddress)
@@ -382,7 +404,8 @@ class Graph:
             self.logger_file.info(self.prepareCsv({"event_name": "network", 
                                                     "event_object": newStubNetwork, 
                                                     "event_status": "up", 
-                                                    "event_detected_by": lsa_obj.adv_router_id
+                                                    "event_detected_by": lsa_obj.adv_router_id,
+                                                    "graph_time": self.graph_time
                                                     }))
             # add it to Graph
             self.add_stub(lsa_obj.adv_router_id, newStubNetwork, lsa_obj.OwnRidToStubNetworkWithMaskToMetricMap[lsa_obj.adv_router_id][newStubNetwork])
@@ -401,7 +424,8 @@ class Graph:
             self.logger_file.info(self.prepareCsv({"event_name": "network", 
                                                     "event_object": oldStubNetwork, 
                                                     "event_status": "down", 
-                                                    "event_detected_by": lsa_obj.adv_router_id
+                                                    "event_detected_by": lsa_obj.adv_router_id,
+                                                    "graph_time": self.graph_time
                                                     }))
             # remove it from Graph
             self.adv_router_id = lsa_obj.adv_router_id # for using common method
@@ -420,7 +444,10 @@ class Graph:
                                                         "event_status": "changed",
                                                         "old_cost": f"old_cost:{stubMetricFromGraph}",
                                                         "new_cost": f"new_cost:{stubMetricFromLSA}",
-                                                        "event_detected_by": lsa_obj.adv_router_id
+                                                        "event_detected_by": lsa_obj.adv_router_id,
+                                                        "subnet_type": "stub",
+                                                        "shared_subnet_remote_neighbors_ids": f"{lsa_obj.adv_router_id}",
+                                                        "graph_time": self.graph_time
                                                         }))
                 self.edit_metric_stub(lsa_obj.adv_router_id, commonStubNetwork, stubMetricFromLSA)
                 changedMetricStubNetworkSet.add(commonStubNetwork)
@@ -546,7 +573,8 @@ class Graph:
                 self.logger_file.info(self.prepareCsv({"event_name": "host", 
                                                         "event_object": neighborsRid, 
                                                         "event_status": "down", 
-                                                        "event_detected_by": lsa_adv_router_id
+                                                        "event_detected_by": lsa_adv_router_id,
+                                                        "graph_time": self.graph_time
                                                         }))
             # from neighbor to Dr, our DR itself
             self.__remove_transit_neighbor_from_data(neighborsRid, neighborIp)
@@ -592,7 +620,8 @@ class Graph:
                 self.logger_file.info(self.prepareCsv({"event_name": "host", 
                                                         "event_object": hostDownRid, 
                                                         "event_status": "down", 
-                                                        "event_detected_by": lsa_obj.adv_router_id
+                                                        "event_detected_by": lsa_obj.adv_router_id,
+                                                        "graph_time": self.graph_time
                                                         }))
 
     def doGetDiffTransit(self, lsu_obj) -> None:
@@ -627,10 +656,9 @@ class Graph:
             self.logger_file.info(self.prepareCsv({"event_name": "host", 
                                                     "event_object": neighborRid, 
                                                     "event_status": newStateUpDown.lower(), 
-                                                    "event_detected_by": lsa_obj.adv_router_id
+                                                    "event_detected_by": lsa_obj.adv_router_id,
+                                                    "graph_time": self.graph_time
                                                     }))
-            if lsa_obj.adv_router_id == '10.1.123.23':
-                print()
             # if it's new host,  check that network is in transit. LSA2 includes network mask
             try:
                 network_obj = ipaddress.ip_interface(f"{drIpAddress}/{lsa_obj.network_mask}")
