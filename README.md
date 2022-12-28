@@ -94,6 +94,9 @@ docker-compose up -d
  Because the connection between Watcher (with Logstash) can be lost, but watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added 
  to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
  
+ # Browse your topology changes logs
+ Your logs are here http://localhost:5601/ -> `Analytics/Discover` `watcher-updown-events`. 
+ 
  ### Minimum Logstash version
  7.14.0, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281)  
 
