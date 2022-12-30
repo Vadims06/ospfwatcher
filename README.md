@@ -23,6 +23,18 @@ OSPF cost changes on links
 Logs if OSPF adjacency was Up/Down or any networks appeared/disappeared.  
 ![](https://github.com/Vadims06/ospfwatcher/blob/774ffe06131e932bd0d87b430010523d942a2342/docs/host-updown-raw-logs.png)
 
+#### Topolograph OSPF Monitoring. New subnet event shows where the subnet appeared  
+![](https://github.com/Vadims06/topolograph/blob/56861d2d72399c92a6858346cd42171cbd6da4c7/docs/release-notes/v2.27/ospf_monitoring_new_subnet.PNG)  
+  
+  
+#### Topolograph OSPF Monitoring. Filter any subnet-related events, select Change metric event
+new and old metric is shown
+![](https://github.com/Vadims06/topolograph/blob/56861d2d72399c92a6858346cd42171cbd6da4c7/docs/release-notes/v2.27/ospf_monitoring_change_metric.PNG) 
+
+#### Topolograph OSPF Monitoring. up/down link events
+Red timelines show link (~adjacency) down events, green one - up link (~adjacency).  
+Timeline `10.1.1.2-10.1.1.3` has been selected.
+![](https://github.com/Vadims06/topolograph/blob/56861d2d72399c92a6858346cd42171cbd6da4c7/docs/release-notes/v2.27/ospf_monitoring_down_link.PNG)
 ## How to setup
 1. Choose a Linux host with Docker installed
 2. Setup Topolograph:  
