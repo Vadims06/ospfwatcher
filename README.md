@@ -6,7 +6,7 @@ Logged topology changes:
 * OSPF networks appeared/disappeared from the topology
 
 ## Architecture
-![](https://github.com/Vadims06/ospfwatcher/blob/f218b754ac7b543ffe46f9bb7df9cba0caf7b5cb/docs/Architecture.png)  
+![](https://github.com/Vadims06/ospfwatcher/blob/23536a5f7d296cbced4dce95c8bdee43dd93821f/docs/ospfwatcher_plus_topolograph_architecture.png)  
 The Quagga container has `network_mode=host` so it sees the GRE tunnel, which is configured by Admin on the Linux Host.  
 > **Note**  
 > ospfwatcher:v1.1 is compatible with [topolograph:v2.7](https://github.com/Vadims06/topolograph/releases/tag/v2.27), it means that OSPF network changes can be shown on the network graph.
