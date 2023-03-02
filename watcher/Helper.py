@@ -672,8 +672,8 @@ class QConnecter:
         'device_type': 'cisco_ios_telnet',
         "host": os.getenv('QUAGGA_HOST', '127.0.0.1'),
         "port": 2604,
-        "password": 'zebra',
-        "secret": 'zebra'
+        "password": os.getenv('QUAGGA_PASSWORD', 'zebra'),
+        "secret": os.getenv('QUAGGA_SECRET', 'zebra'),
         }
 
     def get_lsdb_output(self):
