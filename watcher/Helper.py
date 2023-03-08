@@ -1,6 +1,7 @@
 from collections import defaultdict
 import ipaddress
 import requests, os
+import json
 from requests.exceptions import Timeout
 from netmiko import ConnectHandler, NetmikoTimeoutException, NetmikoAuthenticationException
 from typing import Optional, Set, Annotated
@@ -676,6 +677,17 @@ class QConnecter:
         "secret": os.getenv('QUAGGA_SECRET', 'zebra'),
         }
 
+    def do_check_if_ospf_has_neighbors(self):
+        output = False
+        try:
+            with ConnectHandler(**self._device) as conn:
+                show_ip_ospf_neigh_json_reply = conn.send_command('show ip ospf neighbor json')
+                show_ip_ospf_neigh_reply = json.loads(show_ip_ospf_neigh_json_reply)
+                output = bool(show_ip_ospf_neigh_reply.get("neighbors", False)) if show_ip_ospf_neigh_reply else False
+        except (NetmikoTimeoutException, NetmikoAuthenticationException, ConnectionRefusedError) as error:
+            print(error, self._device)
+        return output
+
     def get_lsdb_output(self):
         output_str = ''
         try:
@@ -710,6 +722,9 @@ class GraphFromTopolograph(Graph):
         if os.getenv('TEST_MODE', '') == 'True':
             with open(os.path.join(os.path.dirname(__file__), 'tests/quagga_lsdb.txt')) as f:
                 lsdb_output = f.read()
+        else:
+            if not quagga_conn.do_check_if_ospf_has_neighbors():
+                raise ValueError('Quagga does not have any neighbors, please setup GRE tunnel and build OSPF adjacency first.')
         print(f"lsdb_output:{lsdb_output[:200]}")
         if not lsdb_output:
             raise ValueError('Cannot get LSDB from Quagga Watcher')

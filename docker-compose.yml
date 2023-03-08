@@ -48,7 +48,7 @@ services:
         target: /home/watcher/watcher/logs
     network_mode: "host"
     depends_on:
-      - quagga
+      - logstash
 
   
   logstash:
@@ -100,7 +100,7 @@ services:
       ELASTIC_PORT: $ELASTIC_PORT
     entrypoint: ["python", "create.py"]
     depends_on:
-      - watcher
+      - quagga
     networks:
       - internal
 
