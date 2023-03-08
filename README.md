@@ -6,8 +6,10 @@ Logged topology changes:
 * OSPF networks appeared/disappeared from the topology
 
 ## Architecture
-![](https://github.com/Vadims06/ospfwatcher/blob/f218b754ac7b543ffe46f9bb7df9cba0caf7b5cb/docs/Architecture.png)  
+![](https://github.com/Vadims06/ospfwatcher/blob/23536a5f7d296cbced4dce95c8bdee43dd93821f/docs/ospfwatcher_plus_topolograph_architecture.png)  
 The Quagga container has `network_mode=host` so it sees the GRE tunnel, which is configured by Admin on the Linux Host.  
+> **Note**  
+> ospfwatcher:v1.1 is compatible with [topolograph:v2.7](https://github.com/Vadims06/topolograph/releases/tag/v2.27), it means that OSPF network changes can be shown on the network graph.
 ### Functional Role
 ![](https://github.com/Vadims06/ospfwatcher/blob/247bb4d330de762cfc4c3fd67135e5740ba8403c/docs/functional-watcher-role.png)
 ## Demo
@@ -21,6 +23,18 @@ OSPF cost changes on links
 Logs if OSPF adjacency was Up/Down or any networks appeared/disappeared.  
 ![](https://github.com/Vadims06/ospfwatcher/blob/774ffe06131e932bd0d87b430010523d942a2342/docs/host-updown-raw-logs.png)
 
+#### Topolograph OSPF Monitoring. New subnet event shows where the subnet appeared  
+![](https://github.com/Vadims06/topolograph/blob/56861d2d72399c92a6858346cd42171cbd6da4c7/docs/release-notes/v2.27/ospf_monitoring_new_subnet.PNG)  
+  
+  
+#### Topolograph OSPF Monitoring. Filter any subnet-related events, select Change metric event
+new and old metric is shown
+![](https://github.com/Vadims06/topolograph/blob/56861d2d72399c92a6858346cd42171cbd6da4c7/docs/release-notes/v2.27/ospf_monitoring_change_metric.PNG) 
+
+#### Topolograph OSPF Monitoring. up/down link events
+Red timelines show link (~adjacency) down events, green one - up link (~adjacency).  
+Timeline `10.1.1.2-10.1.1.3` has been selected.
+![](https://github.com/Vadims06/topolograph/blob/56861d2d72399c92a6858346cd42171cbd6da4c7/docs/release-notes/v2.27/ospf_monitoring_down_link.PNG)
 ## How to setup
 1. Choose a Linux host with Docker installed
 2. Setup Topolograph:  
