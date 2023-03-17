@@ -86,7 +86,7 @@ services:
       - internal
   
   logstash-index-creator:
-    image: watcher:1.0
+    image: ospfwatcher_watcher:latest
     container_name: logstash-index-creator
     volumes:
       - type: bind
