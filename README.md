@@ -96,6 +96,7 @@ Default values for your information:
 
 Start docker-compose  
 ```bash
+docker-compose build
 docker-compose up -d
 ```
 
