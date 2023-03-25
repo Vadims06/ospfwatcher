@@ -54,6 +54,14 @@ xpack.security.enabled: false
 ```  
 
 4. Setup GRE tunnel from the host to a network device  
+It's needed to have minimum one GRE tunnel to an area, which is needed to be monitored. If OSPF domain has multiple areas, setup one GRE into each area. It's a restriction of OSPF architecture to knows about new/old adjancency or link cost changes via LSA1/LSA2 per area basis only. So Quagga host in OSPF Watcher should know about all subnets in all areas (which we want to monitor) and in order to isolate subnets from each other apply the policy to reject OSPF routers from installing them into the host's routing table. An example of such a policy is below: 
+```bash
+# quagga/config/ospfd.conf
+route-map TO_KERNEL deny 200
+exit
+!
+ip protocol ospf route-map TO_KERNEL
+```
 > **Note**  
 > You can skip this step and run ospfwatcher in `test_mode`, so test LSDB from the file will be taken and test changes (loss of adjancency and change of OSPF metric) will be posted in ELK  
 ```bash
