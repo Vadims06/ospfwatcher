@@ -1,5 +1,5 @@
 # OSPF Topology Watcher
-OSPF Topology Watcher is like a Git for developers, but for network engineers - it helps to track OSPF topology changes and shows it on the history diagram. Changes are exported by Logstash to Elastic Stack (ELK) and Topolograph monitoring dashboard. Components of the solution are wrapped into containers, so it can be increadebly fast to start it. The only thing is needed to configure manually - is GRE tunnel setup on the Linux host.  
+OSPF Topology Watcher is like a Git for developers, but for network engineers - it helps to track OSPF topology changes and shows it on the history diagram. Changes are exported by Logstash to **Elastic Stack (ELK)**, **Zabbix** and **Topolograph** monitoring dashboard. Components of the solution are wrapped into containers, so it can be increadebly fast to start it. The only thing is needed to configure manually - is GRE tunnel setup on the Linux host.  
 Logged topology changes:
 * OSPF neighbor adjacency Up/Down
 * OSPF link cost changes
@@ -8,6 +8,7 @@ Logged topology changes:
 ## Architecture
 ![](https://github.com/Vadims06/ospfwatcher/blob/23536a5f7d296cbced4dce95c8bdee43dd93821f/docs/ospfwatcher_plus_topolograph_architecture.png)  
 The Quagga container has `network_mode=host` so it sees the GRE tunnel, which is configured by Admin on the Linux Host.  
+Integration with **Zabbix** was added in *ospfwatcher:v1.4* for allerting/notification of OSPF topology changes.   
 > **Note**  
 > ospfwatcher:v1.1 is compatible with [topolograph:v2.7](https://github.com/Vadims06/topolograph/releases/tag/v2.27), it means that OSPF network changes can be shown on the network graph.
 ### Functional Role
@@ -35,6 +36,20 @@ new and old metric is shown
 Red timelines show link (~adjacency) down events, green one - up link (~adjacency).  
 Timeline `10.1.1.2-10.1.1.3` has been selected.
 ![](https://github.com/Vadims06/topolograph/blob/56861d2d72399c92a6858346cd42171cbd6da4c7/docs/release-notes/v2.27/ospf_monitoring_down_link.PNG)
+
+## OSPF topology change notification/alarming via Zabbix. Examples
+Zabbix's dashboard with active OSPF alarms detected by OSPFWatcher  
+![](https://github.com/Vadims06/ospfwatcher/blob/cc690cff7cb9a99543b4a4c5163db54284e8f888/docs/zabbix-ui/zabbix_dashboard_with_all_alarms.png)
+#### Zabbix OSPF neighbor up/down alarm
+This alarm tracks all new OSPF adjacencies or when device loses its OSPF neighbor
+![](https://github.com/Vadims06/ospfwatcher/blob/cc690cff7cb9a99543b4a4c5163db54284e8f888/docs/zabbix-ui/zabbix_ospf_neighbor_up_log_latest_data.png)
+#### Zabbix OSPF Cost changed on transit links
+Transit links are all links between active OSPF neighbors. If cost on a link was changed it might affect all actual/shortest paths traffic follows 
+![](https://github.com/Vadims06/ospfwatcher/blob/cc690cff7cb9a99543b4a4c5163db54284e8f888/docs/zabbix-ui/zabbix_ospf_link_cost_change_log_latest_data.png)
+#### Zabbix alert if OSPF network was stopped announcing from node
+If a subnet was removed from OSPF node (the node withdrew it from the announcement) it means the network from this node became unavailable for others, this event will be logged too.
+![](https://github.com/Vadims06/ospfwatcher/blob/cc690cff7cb9a99543b4a4c5163db54284e8f888/docs/zabbix-ui/zabbix_ospf_network_up_log_latest_data.png)
+
 ## How to setup
 1. Choose a Linux host with Docker installed
 2. Setup Topolograph:  
@@ -117,11 +132,18 @@ docker-compose up -d
  Because the connection between Watcher (with Logstash) can be lost, but watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added 
  to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
  
- # Browse your topology changes logs
+ ## Browse your topology changes logs
  Your logs are here http://localhost:5601/ -> `Analytics/Discover` `watcher-updown-events`. 
  
+ ## Zabbix settings
+ Zabbix settings are available here ```/docs/zabbix-ui```. There are 4 hosts and items (host and item inside each host has the same names) are required:
+ * ospf_neighbor_up_down
+ * ospf_network_up_down
+ * ospf_link_cost_change
+ * ospf_stub_network_cost_change
+
  ### Minimum Logstash version
- 7.14.0, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281)  
+ 7.17.0, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
 
  ### License
  The functionality was tested using Basic ELK license.  
