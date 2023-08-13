@@ -1,6 +1,6 @@
 # OSPF Topology Watcher
-OSPF Topology Watcher is like a Git for developers, but for network engineers - it helps to track OSPF topology changes and shows it on the history diagram. Changes are exported by Logstash to **Elastic Stack (ELK)**, **Zabbix** and **Topolograph** monitoring dashboard. Components of the solution are wrapped into containers, so it can be increadebly fast to start it. The only thing is needed to configure manually - is GRE tunnel setup on the Linux host.  
-Logged topology changes:
+OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers. It works via passively listening to OSPF control plane messages through a specially established OSPF adjacency between OSPF Watcher and one of the network device. The tool logs OSPF events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. Components of the solution are wrapped into containers, so it can be increadebly fast to start it. The only thing is needed to configure manually - is GRE tunnel setup on the Linux host.  
+## Logged topology changes:
 * OSPF neighbor adjacency Up/Down
 * OSPF link cost changes
 * OSPF networks appeared/disappeared from the topology
