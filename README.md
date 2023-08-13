@@ -50,6 +50,10 @@ Transit links are all links between active OSPF neighbors. If cost on a link was
 If a subnet was removed from OSPF node (the node withdrew it from the announcement) it means the network from this node became unavailable for others, this event will be logged too.
 ![](https://github.com/Vadims06/ospfwatcher/blob/cc690cff7cb9a99543b4a4c5163db54284e8f888/docs/zabbix-ui/zabbix_ospf_network_up_log_latest_data.png)
 
+#### Slack notification
+HTTP POST messages can be easily accepted by messengers, which allows to get instant notifications of OSPF topology changes:
+![](https://github.com/Vadims06/ospfwatcher/blob/4596d4dfe368bf3500ab1cf64236946bbe4e45fb/docs/slack/slack_notification.PNG)
+
 ## How to setup
 1. Choose a Linux host with Docker installed
 2. Setup Topolograph:  
@@ -141,6 +145,12 @@ docker-compose up -d
  * ospf_network_up_down
  * ospf_link_cost_change
  * ospf_stub_network_cost_change
+
+ ## WebHook setting
+1. Create a Slack app
+2. Enable Incoming Webhooks
+3. Create an Incoming Webhook (generates URL)
+4. Uncomment `EXPORT_TO_WEBHOOK_URL_BOOL` in `.env`, set the URL to `WEBHOOK_URL`
 
  ### Minimum Logstash version
  7.17.0, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
