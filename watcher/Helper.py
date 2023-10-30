@@ -182,6 +182,11 @@ class Graph:
             backupCount=1)
         file_handler.setFormatter(self.mformater)
         self.logger_file.addHandler(file_handler)
+        # Errors
+        error_file_handler = logging.FileHandler(self.logfile + '_errors.log')
+        error_file_handler.setFormatter(self.mformater)
+        error_file_handler.setLevel(logging.ERROR)
+        self.logger_file.addHandler(error_file_handler)
 
     @staticmethod
     def prepareCsv(dd: dict) -> str:
@@ -329,7 +334,7 @@ class Graph:
 
         oldP2pOwnIpAddressSet = p2pOwnIpAddressSetFromGraph - p2pOwnIpAddressSetFromLSA
         for oldP2pOwnIpAddress in oldP2pOwnIpAddressSet:
-            oldNeighborRid = self.p2pOwnIpAddressWithRemoteNeighborRidMap[oldP2pOwnIpAddress]
+            oldNeighborRid = self.p2pOwnIpAddressWithRemoteNeighborRidMap.get(oldP2pOwnIpAddress, oldP2pOwnIpAddress)
             #print(f"old p2p neighbor link: {oldNeighborRid}. Detected by: {lsa_obj.adv_router_id}")
             print(self.p2pUpDownLog_str.format(new_old = 'old',
                                         neighborName = oldNeighborRid,
@@ -341,6 +346,14 @@ class Graph:
                                                     "event_detected_by": lsa_obj.adv_router_id,
                                                     "graph_time": self.graph_time
                                                     }))
+            if not self.p2pOwnIpAddressWithRemoteNeighborRidMap.get(oldP2pOwnIpAddress):
+                self.logger_file.error(self.prepareCsv({"event_name": "host", 
+                                                        "event_object": oldP2pOwnIpAddress, 
+                                                        "event_status": "down", 
+                                                        "event_detected_by": lsa_obj.adv_router_id,
+                                                        "graph_time": self.graph_time,
+                                                        "error": f"there is no RID for p2p's IP address {oldP2pOwnIpAddress}"
+                                                        }))
             '''
             # clear all stub nets of down node
             # In case of triangle connection, we remove stub networks if a link between two devices is Down, but we have backup path and Stub networks are available. Let's do not delete stub networks!

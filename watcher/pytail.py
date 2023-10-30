@@ -175,16 +175,25 @@ if __name__ == '__main__':
 
         if re_end_line.match(line): # re_spf doesn't show at old Quagga version
             #print(f"OSPF topology changes is detected. LsuRouterLsaDetails:{LsuRouterLsaDetails}")
-            for lsa_obj in lsu_obj.LSA_ll:
-                                
-                if lsa_obj.process_router_lsa:
-                    # check P2P links
-                    newP2pOwnIpAddressSet, oldP2pOwnIpAddressSet, changedP2pOwnIpAddressSet = graph_obj.doGetNewOldDiffP2pSingleLSA(lsa_obj)
-                    # check stub link
-                    newStubNetworkSet, oldStubNetworkSet, changedMetricStubNetworkSet = graph_obj.doGetNewOldDiffStubSingleLSA(lsa_obj)
-                    # broadcast network - type transit
-                    graph_obj.doGetDiffTransitSingleLSA(lsa_obj)
-                    process_router_lsa = False # SPT can be printed several times after receiving msg, so proceed diff only one time
-                if lsa_obj.process_network_lsa:
-                    graph_obj.doGetNewOldLsa2Neighbors(lsa_obj)
-                    process_network_lsa = False # SPT can be printed several times after receiving msg, so proceed diff only one time
+            try:
+                for lsa_obj in lsu_obj.LSA_ll:
+                                    
+                    if lsa_obj.process_router_lsa:
+                        # check P2P links
+                        newP2pOwnIpAddressSet, oldP2pOwnIpAddressSet, changedP2pOwnIpAddressSet = graph_obj.doGetNewOldDiffP2pSingleLSA(lsa_obj)
+                        # check stub link
+                        newStubNetworkSet, oldStubNetworkSet, changedMetricStubNetworkSet = graph_obj.doGetNewOldDiffStubSingleLSA(lsa_obj)
+                        # broadcast network - type transit
+                        graph_obj.doGetDiffTransitSingleLSA(lsa_obj)
+                        process_router_lsa = False # SPT can be printed several times after receiving msg, so proceed diff only one time
+                    if lsa_obj.process_network_lsa:
+                        graph_obj.doGetNewOldLsa2Neighbors(lsa_obj)
+                        process_network_lsa = False # SPT can be printed several times after receiving msg, so proceed diff only one time
+            except NameError:
+                graph_obj.logger_file.error(graph_obj.prepareCsv({"event_name": "", 
+                                                        "event_object": "", 
+                                                        "event_status": "", 
+                                                        "event_detected_by": "",
+                                                        "graph_time": graph_obj.graph_time,
+                                                        "error": f"Type 4 (Link State Update) wasn't found. Check messages before {line} line"
+                                                        }))
