@@ -718,11 +718,12 @@ class GraphFromTopolograph(Graph):
     
     def init_graph(self):
         quagga_conn = QConnecter()
-        lsdb_output = quagga_conn.get_lsdb_output()
         if os.getenv('TEST_MODE', '') == 'True':
+            print('Demo mode. Connection to OSPFd has been missed.')
             with open(os.path.join(os.path.dirname(__file__), 'tests/quagga_lsdb.txt')) as f:
                 lsdb_output = f.read()
         else:
+            lsdb_output = quagga_conn.get_lsdb_output()
             if not quagga_conn.do_check_if_ospf_has_neighbors():
                 raise ValueError('Quagga does not have any neighbors, please setup GRE tunnel and build OSPF adjacency first.')
         print(f"lsdb_output:{lsdb_output[:200]}")
@@ -735,7 +736,8 @@ class GraphFromTopolograph(Graph):
             raise Timeout('The request timed out')
         if r_post.ok:
             print('OSPF LSDB has been received')
-            quagga_conn.do_enable_ospf_debug()
+            if os.getenv('TEST_MODE', '') != 'True':
+                quagga_conn.do_enable_ospf_debug()
             super().__init__(**r_post.json())
         else:
             try:

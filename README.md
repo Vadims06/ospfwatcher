@@ -152,6 +152,47 @@ docker-compose up -d
 3. Create an Incoming Webhook (generates URL)
 4. Uncomment `EXPORT_TO_WEBHOOK_URL_BOOL` in `.env`, set the URL to `WEBHOOK_URL`
 
+## Troubleshooting
+This is a quick set of checks in case of absence of events on OSPF Monitoring page. OSPF Watcher consists of three services: OSPFd/Quagga [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks.
+1. Check if Quagga tracks OSPF changes, run the following command:  
+```
+docker exec -it quagga cat /var/log/quagga/ospfd.log
+```   
+you should see logs similar to [this](https://github.com/Vadims06/ospfwatcher/blob/d8366508abc51627c7f9a2ce6e47b7f23e420f1e/watcher/tests/test25.txt)   
+2. Check if Watcher parses changes:   
+```
+docker exec -it watcher cat /home/watcher/watcher/logs/watcher.log
+```
+You should see tracked changes of your network, i.e. here we see that `10.0.0.0/29` network went up at `2023-10-27T07:50:24Z` on `10.10.1.4` router.   
+```
+2023-10-27T07:50:24Z,demo-watcher,network,10.0.0.0/29,up,10.10.1.4,28Oct2023_01h10m02s_7_hosts_ospfwatcher
+```
+3. Check that messages are sent:  
+    1. Uncomment `DEBUG_BOOL="True"` in `.env` and check logs `docker logs logstash` and do:
+        - wait for the next event in your network
+        - change a cost of you stub network, return it back and see this event in this logs
+        - simulate network changes   
+            ```
+            docker exec -it watcher /bin/bash
+            echo "2023-10-27T07:50:24Z,demo-watcher,network,10.0.0.0/29,up,10.10.1.4,28Oct2023_01h10m02s_7_hosts_ospfwatcher" >> /home/watcher/watcher/logs/watcher.log
+            ```    
+    2. Connect to mongoDB and check logs:
+    ```
+    docker exec -it mongo /bin/bash
+    ```  
+    Inside container (change):  
+    ```
+    mongo mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb:27017/admin?gssapiServiceName=mongodb
+    use admins
+    ```
+    Check the last two/N records in adjancency changes (`adj_change`) or cost changes (`cost_change`)
+    ```
+    db.adj_change.find({}).sort({_id: -1}).limit(2)
+    db.cost_change.find({}).sort({_id: -1}).limit(2)
+    ```
+    > **Note**  
+    > If you see a single event in `docker logs logstash` it means that mongoDB output is blocked, check if you have a connection to MongoDB `docker exec -it logstash curl -v mongodb:27017`   
+
  ### Minimum Logstash version
  7.17.0, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
 
