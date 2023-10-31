@@ -57,9 +57,10 @@ HTTP POST messages can be easily accepted by messengers, which allows to get ins
 ## How to setup
 1. Choose a Linux host with Docker installed
 2. Setup Topolograph:  
-* launch your own Topolograph on docker using [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or make sure you have a connection to the public https://topolograph.com  
+* launch your own Topolograph on docker using [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or make sure you have a connection to the public https://topolograph.com
+* create a user for API authentication using Local Registration form on the site, add your IP address in `API/Authorised source IP ranges` on the site and write down the following variables
 > **Note**  
-> In case of using external topolograph.com create a user for API authentication using Local Registration form on the site, add your IP address in `API/Authorised source IP ranges` on the site and write down the following variables (in case of using Docker version - left default variables and go to the next step):    
+> `ospf@topolograph.com` user with `ospf` password is used in `.env` file. Create such user in case of using Docker version to use default `.venv` variables and go to the next step. Write down the following variables in case of using public Topolograph:    
 > * `TOPOLOGRAPH_HOST`
 > * `TOPOLOGRAPH_PORT`
 > * `TOPOLOGRAPH_USER_LOGIN`
