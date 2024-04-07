@@ -94,7 +94,7 @@ services:
       - internal
   
   logstash-index-creator:
-    image: ospfwatcher_watcher:latest
+    image: ospfwatcher-watcher:latest
     container_name: logstash-index-creator
     volumes:
       - type: bind
