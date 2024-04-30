@@ -48,7 +48,8 @@ services:
         target: /home/watcher/watcher/logs
     network_mode: "host"
     depends_on:
-      - logstash
+      logstash:
+        condition: service_healthy
 
   
   logstash:
@@ -87,7 +88,13 @@ services:
       EXPORT_TO_ZABBIX_BOOL: $EXPORT_TO_ZABBIX_BOOL
       EXPORT_TO_WEBHOOK_URL_BOOL: $EXPORT_TO_WEBHOOK_URL_BOOL
       WEBHOOK_URL: $WEBHOOK_URL
-
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9600"]
+      interval: 5s
+      timeout: 10s
+      retries: 60
+      start_period: 20s
+      start_interval: 5s
     depends_on:
       - logstash-index-creator
     networks:
