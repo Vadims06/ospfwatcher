@@ -194,6 +194,43 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
     > **Note**  
     > If you see a single event in `docker logs logstash` it means that mongoDB output is blocked, check if you have a connection to MongoDB `docker exec -it logstash curl -v mongodb:27017`   
 
+ Logstash troubleshooting    
+ Start logstash container
+```
+[ospf-watcher]# docker run -it --rm --network=topolograph_backend --env-file=./.env -v ./logstash/pipeline:/usr/share/logstash/pipeline -v ./logstash/config:/usr/share/logstash/config logstash:7.17.0 /bin/bash
+```
+Inside container run this command:
+```
+bin/logstash -e 'input { stdin { } } filter { dissect { mapping => { "message" => "%{watcher_time},%{watcher_name},%{event_name},%{event_object},%{event_status},old_cost:%{old_cost},new_cost:%{new_cost},%{event_detected_by},%{subnet_type},%{shared_subnet_remote_neighbors_ids},%{graph_time}" }} mutate { update => { "[@metadata][mongo_collection_name]" => "adj_change" }} } output { stdout { codec  => rubydebug {metadata => true}} }'
+```
+It will expect an input from CLI, so copy and past this line of log
+```
+2023-01-01T00:00:00Z,demo-watcher,metric,10.1.14.0/24,changed,old_cost:10,new_cost:123,10.1.1.4,stub,10.1.1.4,01Jan2023_00h00m00s_7_hosts
+```
+The output should be:
+```
+[INFO ] 2024-05-13 21:15:25.462 [[main]-pipeline-manager] javapipeline - Pipeline started {"pipeline.id"=>"main"}
+The stdin plugin is now waiting for input:
+[INFO ] 2024-05-13 21:15:25.477 [Agent thread] agent - Pipelines running {:count=>1, :running_pipelines=>[:main], :non_running_pipelines=>[]}
+2023-01-01T00:00:00Z,demo-watcher,metric,10.1.14.0/24,changed,old_cost:10,new_cost:123,10.1.1.4,stub,10.1.1.4,01Jan2023_00h00m00s_7_hosts
+{
+                            "graph_time" => "01Jan2023_00h00m00s_7_hosts",
+                     "event_detected_by" => "10.1.1.4",
+                           "subnet_type" => "stub",
+                               "message" => "2023-01-01T00:00:00Z,demo-watcher,metric,10.1.14.0/24,changed,old_cost:10,new_cost:123,10.1.1.4,stub,10.1.1.4,01Jan2023_00h00m00s_7_hosts",
+                          "watcher_name" => "demo-watcher",
+                          "watcher_time" => "2023-01-01T00:00:00Z",
+                            "@timestamp" => 2024-05-13T21:15:50.628Z,
+                              "old_cost" => "10",
+                              "@version" => "1",
+                                  "host" => "ba8ff3ab31f8",
+                            "event_name" => "metric",
+                              "new_cost" => "123",
+    "shared_subnet_remote_neighbors_ids" => "10.1.1.4",
+                          "event_object" => "10.1.14.0/24",
+                          "event_status" => "changed"
+}
+```
  ### Minimum Logstash version
  7.17.0, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
 
