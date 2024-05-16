@@ -58,15 +58,17 @@ HTTP POST messages can be easily accepted by messengers, which allows to get ins
 1. Choose a Linux host with Docker installed
 2. Setup Topolograph:  
 * launch your own Topolograph on docker using [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or make sure you have a connection to the public https://topolograph.com
-* create a user for API authentication using Local Registration form on the site, add your IP address in `API/Authorised source IP ranges` on the site and write down the following variables
+* create a user for API authentication using Local Registration form on the site, add your IP address in `API/Authorised source IP ranges`.   
+Set variables in `.env` file:    
+
 > **Note**  
-> `ospf@topolograph.com` user with `ospf` password is used in `.env` file. Create such user in case of using Docker version to use default `.venv` variables and go to the next step. Write down the following variables in case of using public Topolograph:    
-> * `TOPOLOGRAPH_HOST`
-> * `TOPOLOGRAPH_PORT`
-> * `TOPOLOGRAPH_USER_LOGIN`
-> * `TOPOLOGRAPH_USER_PASS`         
-3. Setup ELK  
-* if you already have ELK instance running, so just remember `ELASTIC_IP` for filling env file later. Currently additional manual configuration is needed for creation Index Templates, because the demo script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `ospfwatcher/logstash/index_template/create.py`. Fill free to edit such a script for your needs.
+> * `TOPOLOGRAPH_HOST` - *set the IP address of your host, where the docker is hosted (if you run all demo on a single machine), do not put `localhost`, because ELK, Topolograph and OSPF Watcher run in their private network space*
+> * `TOPOLOGRAPH_PORT` - by default `8080`
+> * `TOPOLOGRAPH_WEB_API_USERNAME_EMAIL` - by default `ospf@topolograph.com` or put your recently created user
+> * `TOPOLOGRAPH_WEB_API_PASSWORD` - by default `ospf`     
+ 
+3. Setup ELK (optionally) 
+* if you already have ELK instance running, so remember `ELASTIC_IP` for filling env file later and uncomment Elastic config here `isiswatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for creation Index Templates, because the demo script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `ospfwatcher/logstash/index_template/create.py`. Fill free to edit such a script for your needs.
 * if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in docker-elk/elasticsearch/config/elasticsearch.yml  
 ```
 xpack.license.self_generated.type: basic
@@ -104,7 +106,7 @@ ip ospf network type point-to-point
 ```
 Set GRE tunnel network where <GRE tunnel ip address> is placed to `quagga/config/ospfd.conf`  
 
-# How to start
+6. Setup OSPF Watcher 
 ```bash
 git clone https://github.com/Vadims06/ospfwatcher.git
 cd ospfwatcher
@@ -122,7 +124,8 @@ Default values for your information:
  * TOPOLOGRAPH_WEB_API_USERNAME_EMAIL=ospf@topolograph.com
  * TOPOLOGRAPH_WEB_API_PASSWORD=ospf  
 
-Start docker-compose  
+7. Start OSPF Watcher  
+Run:  
 ```bash
 docker-compose build
 docker-compose up -d
@@ -197,7 +200,7 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
  Logstash troubleshooting    
  Start logstash container
 ```
-[ospf-watcher]# docker run -it --rm --network=topolograph_backend --env-file=./.env -v ./logstash/pipeline:/usr/share/logstash/pipeline -v ./logstash/config:/usr/share/logstash/config logstash:7.17.0 /bin/bash
+[ospf-watcher]# docker run -it --rm --network=topolograph_backend --env-file=./.env -v ./logstash/pipeline:/usr/share/logstash/pipeline -v ./logstash/config:/usr/share/logstash/config ospfwatcher_watcher:latest /bin/bash
 ```
 Inside container run this command:
 ```
