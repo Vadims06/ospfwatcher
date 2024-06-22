@@ -1,0 +1,81 @@
+name: watcher2-tun1025
+prefix: __lab-name
+
+topology:
+  defaults:
+    labels:
+      gre_num: 1025
+    env-files:
+    - ../../.env
+  nodes:
+    ospf-watcher:
+      kind: linux
+      image: vadims06/ospf-watcher:latest
+      network-mode: container:router
+      startup-delay: 10
+      env:
+        WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log" # Watcher -> Export. default is local dir logs/watcher.log
+        OSPFD_DUMP_FILE_DIR: "/var/log/frr/ospfd.log"
+      binds:
+        - router/ospfd.log:/var/log/frr/ospfd.log # FRR -> Watcher
+        # - ../logs/watcher1-gre1011.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
+        # For crash dump logs if any
+        - ../logs/:/home/watcher/watcher/logs/
+      stages:
+        create:
+          wait-for:
+            - node: h2
+              stage: create
+    router:
+      kind: linux
+      image: quay.io/frrouting/frr:8.5.4
+      binds:
+        - router/ospfd.log:/var/log/frr/ospfd.log
+        - router/daemons:/etc/frr/daemons
+        - router/frr.conf:/etc/frr/frr.conf
+        - router/vtysh.conf:/etc/frr/vtysh.conf
+    h1:
+      kind: host
+      startup-delay: 1
+      exec:
+        # assign addresses on p2p link b/w namespace and host
+        - ip netns exec clab-watcher2-tun1025-router ip address add 169.254.1.2/24 dev veth1
+        - ip netns exec clab-watcher2-tun1025-router ip route add 192.168.1.35 via 169.254.1.1
+        - ip address add 169.254.1.1/24 dev vhost1025
+        # setup GRE
+        - ip netns exec clab-watcher2-tun1025-router ip tunnel add gre1 mode gre local 169.254.1.2 remote 192.168.1.35
+        - ip netns exec clab-watcher2-tun1025-router ip address add 10.10.25.33/24 dev gre1
+        - ip netns exec clab-watcher2-tun1025-router ip link set up dev gre1
+        # NAT and Allow rules for GRE
+        - sudo iptables -t nat -A POSTROUTING -p gre -s 169.254.1.2 -d 192.168.1.35 -o eth0 -j MASQUERADE
+        - sudo iptables -t filter -A FORWARD -p gre -s 169.254.1.2 -d 192.168.1.35 -i vhost1025 -o eth0 -j ACCEPT
+        - sudo iptables -t filter -A FORWARD -p gre -s 192.168.1.35 -i eth0 -j ACCEPT
+      stages:
+        create:
+          wait-for:
+            - node: router
+              stage: create
+    # receive_only_filter:
+    #   kind: linux
+    #   image: vadims06/ospf-filter-xdp:latest
+    #   startup-delay: 2
+    #   network-mode: host
+    #   env:
+    #     VTAP_HOST_INTERFACE: vhost1025
+    #   stages:
+    #     create:
+    #       wait-for:
+    #         - node: h1
+    #           stage: create
+    h2:
+      kind: host
+      exec:
+        - ip netns exec watcher3-gre1025-router ip link set up dev gre1
+      # stages:
+      #   create:
+      #     wait-for:
+      #       - node: receive_only_filter
+      #         stage: create
+
+  links:
+    - endpoints: ["router:veth1", "host:vhost1025"] # type vtap

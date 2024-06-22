@@ -1,0 +1,21 @@
+frr defaults traditional
+hostname {{watcher_name}}
+log file /var/log/frr/ospfd.log
+ipv6 forwarding
+!
+!
+password zebra
+enable password zebra
+!
+interface gre1
+ ip ospf network point-to-point
+exit
+!
+router ospf
+network {{tunnel_subnet_w_digit_mask}} area {{area_num}}
+!
+route-map TO_KERNEL deny 200
+exit
+!
+ip protocol ospf route-map TO_KERNEL
+ipv6 protocol ospf route-map TO_KERNEL

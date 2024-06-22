@@ -1,0 +1,82 @@
+version: '3.2'
+
+services:
+  logstash:
+    # build:
+    #   context: logstash/
+    #   args:
+    #     LOGSTASH_OSS_VERSION: $LOGSTASH_OSS_VERSION
+    # container_name: logstash
+    image: ospfwatcher-logstash:latest
+    volumes:
+      - type: bind
+        source: ./logstash/config/logstash.yml
+        target: /usr/share/logstash/config/logstash.yml
+        read_only: true
+      - type: bind
+        source: ./logstash/pipeline
+        target: /usr/share/logstash/pipeline
+        read_only: true
+      - type: volume
+        source: watcher_output
+        target: /home/watcher/watcher/logs
+        read_only: true
+      # for containerlab integration
+      # - type: bind
+      #   source: /home/ubuntu/ospfwatcher/watcher/logs/watcher.log
+      #   target: /home/watcher/watcher/logs/watcher.log
+      #   read_only: true
+    environment:
+      ELASTIC_USER_LOGIN: $ELASTIC_USER_LOGIN
+      ELASTIC_USER_PASS: $ELASTIC_USER_PASS
+      ELASTIC_IP: $ELASTIC_IP
+      ELASTIC_PORT: $ELASTIC_PORT
+      MONGODB_DATABASE: $MONGODB_DATABASE
+      MONGODB_USERNAME: $MONGODB_USERNAME
+      MONGODB_PASSWORD: $MONGODB_PASSWORD
+      MONGODB_IP: $MONGODB_IP
+      MONGODB_PORT: $MONGODB_PORT
+      ZABBIX_HOST: $ZABBIX_HOST
+      DEBUG_BOOL: $DEBUG_BOOL
+      EXPORT_TO_MONGO_BOOL: $EXPORT_TO_MONGO_BOOL
+      EXPORT_TO_ELASTICSEARCH_BOOL: $EXPORT_TO_ELASTICSEARCH_BOOL
+      EXPORT_TO_ZABBIX_BOOL: $EXPORT_TO_ZABBIX_BOOL
+      EXPORT_TO_WEBHOOK_URL_BOOL: $EXPORT_TO_WEBHOOK_URL_BOOL
+      WEBHOOK_URL: $WEBHOOK_URL
+    healthcheck:
+      test: curl -s http://localhost:9600 >/dev/null || exit 1
+      interval: 10s
+      timeout: 10s
+      retries: 50
+    depends_on:
+     - logstash-index-creator
+    networks:
+      - internal
+  
+  # logstash-index-creator:
+  #   image: ospfwatcher_watcher:latest
+  #   container_name: logstash-index-creator
+  #   volumes:
+  #     - type: bind
+  #       source: ./logstash/index_template/create.py
+  #       target: /home/watcher/watcher/create.py
+  #       read_only: true
+  #   environment:
+  #     EXPORT_TO_ELASTICSEARCH_BOOL: $EXPORT_TO_ELASTICSEARCH_BOOL
+  #     ELASTIC_USER_LOGIN: $ELASTIC_USER_LOGIN
+  #     ELASTIC_USER_PASS: $ELASTIC_USER_PASS
+  #     ELASTIC_IP: $ELASTIC_IP
+  #     ELASTIC_PORT: $ELASTIC_PORT
+  #   entrypoint: ["python", "create.py"]
+    # healthcheck:
+    #   test: curl -s http://${ELASTIC_IP}:${ELASTIC_PORT} >/dev/null || exit 1
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 50
+  #   networks:
+  #     - internal
+
+networks:
+  internal:
+    external:
+      name: topolograph_backend

@@ -56,25 +56,43 @@ HTTP POST messages can be easily accepted by messengers, which allows to get ins
 
 ## How to setup
 1. Choose a Linux host with Docker installed
-2. Setup Topolograph:  
+2. Setup Topolograph (optionally)  
+It's needed for visual network events check on Topolograph UI. Skip if you don't want it. 
 * launch your own Topolograph on docker using [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or make sure you have a connection to the public https://topolograph.com
 * create a user for API authentication using Local Registration form on the site, add your IP address in `API/Authorised source IP ranges` on the site and write down the following variables
 > **Note**  
-> `ospf@topolograph.com` user with `ospf` password is used in `.env` file. Create such user in case of using Docker version to use default `.venv` variables and go to the next step. Write down the following variables in case of using public Topolograph:    
-> * `TOPOLOGRAPH_HOST`
-> * `TOPOLOGRAPH_PORT`
-> * `TOPOLOGRAPH_USER_LOGIN`
-> * `TOPOLOGRAPH_USER_PASS`         
-3. Setup ELK  
-* if you already have ELK instance running, so just remember `ELASTIC_IP` for filling env file later. Currently additional manual configuration is needed for creation Index Templates, because the demo script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `ospfwatcher/logstash/index_template/create.py`. Fill free to edit such a script for your needs.
+> * `TOPOLOGRAPH_HOST` - *set the IP address of your host, where the docker is hosted (if you run all demo on a single machine), do not put `localhost`, because ELK, Topolograph and OSPF Watcher run in their private network space*
+> * `TOPOLOGRAPH_PORT` - by default `8080`
+> * `TOPOLOGRAPH_WEB_API_USERNAME_EMAIL` - by default `ospf@topolograph.com` or put your recently created user
+> * `TOPOLOGRAPH_WEB_API_PASSWORD` - by default `ospf`
+> * `TEST_MODE` - if mode is `True`, a demo OSPF events from static file will be uploaded, not from FRR      
+3. Setup ELK (optionally)  
+It's needed for visual network events check on Elastic search UI. Skip if you don't want it. 
+* if you already have ELK instance running, so just remember `ELASTIC_IP` for filling env file later and uncomment Elastic config here `ospfwatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for creation Index Templates, because the demo script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `ospfwatcher/logstash/index_template/create.py`. Fill free to edit such a script for your needs.
 * if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in docker-elk/elasticsearch/config/elasticsearch.yml  
 ```
 xpack.license.self_generated.type: basic
 xpack.security.enabled: false
 ```  
+> **Note about having Elastic config commented**
+    > When the Elastic output plugin fails to connect to the ELK host, it blocks all other outputs and ignores "EXPORT_TO_ELASTICSEARCH_BOOL" value from env file. Regardless of EXPORT_TO_ELASTICSEARCH_BOOL being False, it tries to connect to Elastic host. The solution - uncomment this portion of config in case of having running ELK.
 
-4. Setup GRE tunnel from the host to a network device  
-It's needed to have minimum one GRE tunnel to an area, which is needed to be monitored. If OSPF domain has multiple areas, setup one GRE into each area. It's a restriction of OSPF architecture to knows about new/old adjancency or link cost changes via LSA1/LSA2 per area basis only. So Quagga host in OSPF Watcher should know about all subnets in all areas (which we want to monitor) and in order to isolate subnets from each other apply the policy to reject OSPF routers from installing them into the host's routing table. An example of such a policy is below: 
+4. Setup OSPF Watcher
+```bash
+git clone https://github.com/Vadims06/ospfwatcher.git
+cd ospfwatcher
+```
+Generate configuration files  
+`vadims06/ospf-watcher:v1.7` includes a client for generating configurations for each Watcher for each OSPF area. To generate individual settings - run the client with `--action add_watcher`   
+```
+sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/ospf-watcher:latest python3 ./client.py --action add_watcher
+```   
+The script will create:
+1. a folder under `watcher` folder with FRR configuration under `router` folder
+2. a containerlab configuration file with network settings
+3. an individual watcher log file in `watcher` folder.  
+
+To stop OSPF routes from being installed in the host's routing table, we the following policy has been applied on the watcher:
 ```bash
 # quagga/config/ospfd.conf
 route-map TO_KERNEL deny 200
@@ -82,17 +100,23 @@ exit
 !
 ip protocol ospf route-map TO_KERNEL
 ```
-> **Note**  
-> You can skip this step and run ospfwatcher in `test_mode`, so test LSDB from the file will be taken and test changes (loss of adjancency and change of OSPF metric) will be posted in ELK  
-```bash
-sudo modprobe ip_gre
-sudo ip tunnel add tun0 mode gre remote <router-ip> local <host-ip> dev eth0 ttl 255
-sudo ip address add <GRE tunnel ip address> dev tun0
-sudo ip link set tun0 up
+
+5. Start OSPF Watcher  
+[Install](https://containerlab.srlinux.dev/install/) containerlab
+To start the watcher run the following command. `clab deploy` is like a `docker compose up -d` command   
 ```
-5. Setup GRE tunnel from the network device to the host. An example for Cisco
+sudo clab deploy --topo watcher/watcher1-tun1025/config.yml
+```
+It will create:
+* Individual network namespace for Watcher and FRR
+* A pair of tap interfaces to connect the watcher to Linux host
+* GRE tunnel in Watcher's namespace
+* NAT settings for GRE traffic
+* FRR & Watcher instance
+
+6. Setup GRE tunnel from the network device to the host. An example for Cisco
 > **Note**  
-> You can skip this step and run ospfwatcher in `test_mode`, so test LSDB from the file will be taken and test changes (loss of adjancency and change of OSPF metric) will be posted in ELK  
+> You can skip this step and run ospfwatcher in `test_mode`, so test LSDB from the file will be taken and test changes (loss of adjacency and change of OSPF metric) will be posted in ELK  
 
 ```bash
 interface gigabitether0/1
@@ -104,27 +128,9 @@ ip ospf network type point-to-point
 ```
 Set GRE tunnel network where <GRE tunnel ip address> is placed to `quagga/config/ospfd.conf`  
 
-# How to start
-```bash
-git clone https://github.com/Vadims06/ospfwatcher.git
-cd ospfwatcher
+Check OSPF neighbor, if there is no OSPF adjacency between network device and OSPF Watcher, check troubleshooting `OSPF Watcher <-> Network device connection` section below (to run diagnostic script).  
+7. Start log export to Topolograph and/or ELK
 ```
-Set variables in `.env` file:    
- * ELASTIC_IP=192.168.0.10 - *set the IP address of your host, where the docker is hosted (if you run all demo on a single machine), do not put `localhost`, because ELK, Topolograph and OSPF Watcher run in their private network space*
- * TOPOLOGRAPH_HOST=192.168.0.10 - *same logic here*
- * TEST_MODE='True' - if mode is `test`, a demo LSDB from the file will be taken, not from Quagga  
-
-Default values for your information:  
- * ELASTIC_PORT=9200
- * ELASTIC_USER_LOGIN=elastic
- * ELASTIC_USER_PASS=changeme
- * TOPOLOGRAPH_PORT=8080
- * TOPOLOGRAPH_WEB_API_USERNAME_EMAIL=ospf@topolograph.com
- * TOPOLOGRAPH_WEB_API_PASSWORD=ospf  
-
-Start docker-compose  
-```bash
-docker-compose build
 docker-compose up -d
 ```
 
@@ -154,6 +160,12 @@ docker-compose up -d
 4. Uncomment `EXPORT_TO_WEBHOOK_URL_BOOL` in `.env`, set the URL to `WEBHOOK_URL`
 
 ## Troubleshooting
+#### OSPF Watcher <-> Network device connection
+`ospf-watcher:v1.7` has `diagnostic` method in `client.py`, which can check packets (tcpdump) from FRR, Iptables settings for a network device. 
+```
+sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:v1.7 python3 ./client.py --action diagnostic --watcher_num <num>
+```   
+#### OSPF Watcher <-> Dashboard page
 This is a quick set of checks in case of absence of events on OSPF Monitoring page. OSPF Watcher consists of three services: OSPFd/Quagga [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks.
 1. Check if Quagga tracks OSPF changes, run the following command:  
 ```
@@ -186,7 +198,7 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
     mongo mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb:27017/admin?gssapiServiceName=mongodb
     use admins
     ```
-    Check the last two/N records in adjancency changes (`adj_change`) or cost changes (`cost_change`)
+    Check the last two/N records in adjacency changes (`adj_change`) or cost changes (`cost_change`)
     ```
     db.adj_change.find({}).sort({_id: -1}).limit(2)
     db.cost_change.find({}).sort({_id: -1}).limit(2)
@@ -195,7 +207,7 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
     > If you see a single event in `docker logs logstash` it means that mongoDB output is blocked, check if you have a connection to MongoDB `docker exec -it logstash curl -v mongodb:27017`   
 
  ### Minimum Logstash version
- 7.17.0, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
+ 7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
 
  ### License
  The functionality was tested using Basic ELK license.  

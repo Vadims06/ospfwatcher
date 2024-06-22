@@ -1,56 +1,6 @@
 version: '3.2'
 
 services:
-  quagga:
-    build:
-      context: quagga
-      dockerfile: Dockerfile
-    image: quagga:1.0
-    container_name: quagga
-    restart: unless-stopped
-    environment:
-      ospfGreTunnelNetworkWithMask: "172.17.0.0/24" # 172.17.0.0/24
-      ospfGreTunnelAreaId: "0.0.0.1" # router ospf\n network 172.17.0.0/24 area 0.0.0.1
-    volumes:
-      - type: volume
-        source: quagga_output
-        target: /var/log/quagga
-      - type: volume
-        source: watcher_output
-        target: /home/watcher/watcher/logs
-    cap_add:
-    - NET_ADMIN
-    - SYS_ADMIN
-    network_mode: "host"
-
-  watcher:
-    build:
-      context: watcher
-      dockerfile: Dockerfile
-    container_name: watcher
-    restart: unless-stopped
-    environment:
-      WATCHER_NAME: "demo-watcher"
-      QUAGGA_HOST: "127.0.0.1"
-      TOPOLOGRAPH_HOST: $TOPOLOGRAPH_HOST
-      TOPOLOGRAPH_PORT: $TOPOLOGRAPH_PORT
-      TOPOLOGRAPH_WEB_API_USERNAME_EMAIL: $TOPOLOGRAPH_WEB_API_USERNAME_EMAIL
-      TOPOLOGRAPH_WEB_API_PASSWORD: $TOPOLOGRAPH_WEB_API_PASSWORD # do not forget to add IP address to Authorised Network list
-      WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log"
-      TEST_MODE: $TEST_MODE
-    volumes:
-      - type: volume
-        source: quagga_output
-        target: /var/log/quagga
-        read_only: true
-      - type: volume
-        source: watcher_output
-        target: /home/watcher/watcher/logs
-    network_mode: "host"
-    depends_on:
-      - logstash
-
-  
   logstash:
     build:
       context: logstash/
@@ -66,10 +16,15 @@ services:
         source: ./logstash/pipeline
         target: /usr/share/logstash/pipeline
         read_only: true
-      - type: volume
-        source: watcher_output
+      - type: bind
+        source: ./watcher/logs
         target: /home/watcher/watcher/logs
         read_only: true
+      # for containerlab integration
+      # - type: bind
+      #   source: /home/ubuntu/ospfwatcher_avgur/watcher/logs/
+      #   target: /home/watcher/watcher/logs/
+      #   read_only: true
     environment:
       ELASTIC_USER_LOGIN: $ELASTIC_USER_LOGIN
       ELASTIC_USER_PASS: $ELASTIC_USER_PASS
@@ -89,7 +44,7 @@ services:
       WEBHOOK_URL: $WEBHOOK_URL
 
     depends_on:
-      - logstash-index-creator
+     - logstash-index-creator
     networks:
       - internal
   
@@ -107,8 +62,6 @@ services:
       ELASTIC_IP: $ELASTIC_IP
       ELASTIC_PORT: $ELASTIC_PORT
     entrypoint: ["python", "create.py"]
-    depends_on:
-      - quagga
     networks:
       - internal
 
@@ -116,9 +69,3 @@ networks:
   internal:
     external:
       name: topolograph_backend
-
-volumes:
-  quagga_output:
-    driver: local
-  watcher_output:
-    driver: local
