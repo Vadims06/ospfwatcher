@@ -6,13 +6,13 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 * OSPF networks appeared/disappeared from the topology
 
 ## Architecture
-![](https://github.com/Vadims06/ospfwatcher/blob/23536a5f7d296cbced4dce95c8bdee43dd93821f/docs/ospfwatcher_plus_topolograph_architecture.png)  
-The Quagga container has `network_mode=host` so it sees the GRE tunnel, which is configured by Admin on the Linux Host.  
-Integration with **Zabbix** was added in *ospfwatcher:v1.4* for allerting/notification of OSPF topology changes.   
+![](docs/ospfwatcher_plus_topolograph_architecture.png)  
+Each Watcher instance maintains all routes and updates within an isolated network namespace. This isolation ensures efficient monitoring without interference and prevent route leaks.
+
 > **Note**  
 > ospfwatcher:v1.1 is compatible with [topolograph:v2.7](https://github.com/Vadims06/topolograph/releases/tag/v2.27), it means that OSPF network changes can be shown on the network graph.
 ### Functional Role
-![](https://github.com/Vadims06/ospfwatcher/blob/247bb4d330de762cfc4c3fd67135e5740ba8403c/docs/functional-watcher-role.png)
+![](docs/functional-watcher-role.png)
 ## Demo
 Click on the image in order zoom it.  
 ![](https://github.com/Vadims06/ospfwatcher/blob/ada2ca86df171ec5f1b550da821f0a8ca1cb1df4/docs/ospf-watcher-demo.gif)
@@ -166,8 +166,8 @@ docker-compose up -d
 sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:v1.7 python3 ./client.py --action diagnostic --watcher_num <num>
 ```   
 #### OSPF Watcher <-> Dashboard page
-This is a quick set of checks in case of absence of events on OSPF Monitoring page. OSPF Watcher consists of three services: OSPFd/Quagga [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks.
-1. Check if Quagga tracks OSPF changes, run the following command:  
+This is a quick set of checks in case of absence of events on OSPF Monitoring page. OSPF Watcher consists of three services: OSPFd/FRR [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks.
+1. Check if FRR tracks OSPF changes, run the following command:  
 ```
 docker exec -it quagga cat /var/log/quagga/ospfd.log
 ```   
