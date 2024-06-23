@@ -1,8 +1,8 @@
 import requests
 import json, os
 if __name__ == '__main__':
-    ELASTIC_IP = os.getenv('ELASTIC_IP') if os.getenv('ELASTIC_IP') else 'http://172.25.80.1'
-    print(f'ELASTIC_IP:{ELASTIC_IP}')
+    ELASTIC_IP = os.getenv('ELASTIC_IP') if os.getenv('ELASTIC_IP') else '172.25.80.1'
+    print(f'Connecting to ELK:{ELASTIC_IP}')
     ELASTIC_URL = 'http://' + ELASTIC_IP
     ELASTIC_USER_LOGIN = os.getenv('ELASTIC_USER_LOGIN', 'elastic')
     ELASTIC_USER_PASS = os.getenv('ELASTIC_USER_PASS', 'changeme')
