@@ -384,6 +384,9 @@ class WATCHER_CONFIG:
         if watcher_host_dump.is_network_device_alive:
             diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_FORWARD_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
             diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
+        # OSPF
+        watcher_host_dump.is_ospf_available()
+        watcher_host_dump.ospf_mtu_match_check()
 
 
 if __name__ == '__main__':

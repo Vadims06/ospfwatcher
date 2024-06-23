@@ -1,10 +1,12 @@
 from abc import abstractmethod
-from scapy.all import AsyncSniffer, IP, SndRcvList, PacketList, sniff
+from scapy.all import AsyncSniffer, IP, Raw, SndRcvList, PacketList, sniff
 from scapy.config import conf
 import netns
 import time
 import logging
 import sys
+from scapy.layers.l2 import GRE
+from scapy.contrib.ospf import *
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 log = logging.getLogger(__name__)
@@ -146,6 +148,14 @@ class WATCHER_HOST(BASE):
                 """)
         if self.is_watcher_alive and self.is_network_device_alive:
             log.info("Watcher and Network device have reachability")
+    
+    def ospf_mtu_match_check(self):
+        ospf_mtu_match = OSPF_MTU_MATCH(self.if_names, self.watcher_internal_ip, self.network_device_ip)
+        return ospf_mtu_match.check(self)
+    
+    def is_ospf_available(self):
+        ospf_availability = OSPF_AVAILABILITY(self.watcher_internal_ip, self.network_device_ip)
+        return ospf_availability.check(self)
 
 class IPTABLE_ENTRY_IP:
     def __init__(self, ip:str) -> None:
@@ -158,6 +168,97 @@ class IPTABLE_ENTRY_IP:
         return str(self.ip)
     def __eq__(self, other):
         return str(self.ip) == other
+
+class OSPF_BASE:
+
+    OSPF_PROTO = 89
+
+    def ospf_packets(self, dump_obj):
+        for pkt in dump_obj.packets:
+            try:
+                if pkt[IP][GRE][IP].getfieldval('proto') != self.OSPF_PROTO:
+                    continue
+                yield pkt
+            except IndexError as e:
+                # Not a OSPF
+                print(e)
+                pass
+
+class OSPF_AVAILABILITY(OSPF_BASE):
+
+    def __init__(self, watcher_internal_ip, network_device_ip) -> None:
+        self.watcher_internal_ip = watcher_internal_ip
+        self.network_device_ip = network_device_ip
+
+    def check(self, dump_obj):
+        self.is_watcher_alive(dump_obj)
+        self.is_network_device_alive(dump_obj)
+
+    def is_watcher_alive(self, dump_obj):
+        for pkt in self.ospf_packets(dump_obj=dump_obj):
+            try:
+                if pkt[IP].src == self.watcher_internal_ip:
+                    log.info(f"Watcher {self.watcher_internal_ip} sends OSPF packets")
+                    return True
+            except Exception as e:
+                print(e)
+                pass
+        else:
+            log.critical(f"Network device {self.watcher_internal_ip} doesnt send OSPF packets")
+        return False
+
+    def is_network_device_alive(self, dump_obj):
+        for pkt in self.ospf_packets(dump_obj=dump_obj):
+            try:
+                if pkt[IP].src == self.network_device_ip:
+                    log.info(f"Network device {self.network_device_ip} sends OSPF packets")
+                    return True
+            except Exception as e:
+                print(e)
+                pass
+        else:
+            log.critical(f"Network device {self.network_device_ip} doesnt send OSPF packets")
+        return False
+        
+class OSPF_MTU_MATCH(BASE, OSPF_BASE):
+    
+    DBDesc = 2
+    OSPF_DBD_LAYER = 'OSPF Database Description'
+    ASSERT_MSG = """MTU doesn't match. Change it on any side to make it equal. """
+    
+    def __init__(self, if_names, watcher_internal_ip, network_device_ip) -> None:
+        self.watcher_internal_ip = watcher_internal_ip
+        self.network_device_ip = network_device_ip
+        # super().__init__(if_names)
+
+    def check(self, dump_obj):
+        a_end_mtu, b_end_mtu = 0, 0
+        for pkt in self.ospf_packets(dump_obj=dump_obj):
+            if a_end_mtu and b_end_mtu:
+                break
+            try:
+                ospf_hdr = pkt[IP][GRE][IP].getlayer('OSPF Header')
+                if ospf_hdr.getfieldval('type') != self.DBDesc:
+                    continue
+                mtu = ospf_hdr.getlayer(self.OSPF_DBD_LAYER).getfieldval('mtu')
+                if pkt[IP].src == self.network_device_ip:
+                    b_end_mtu = mtu
+                elif pkt[IP].src == self.watcher_internal_ip:
+                    a_end_mtu = mtu
+            except IndexError as e:
+                # Layer DBD not found
+                print(e)
+                pass
+        else:
+            if not a_end_mtu and not b_end_mtu:
+                log.info(f"No DBD OSPF packets were detected. Check skipped.")
+        if (a_end_mtu and b_end_mtu):
+            if a_end_mtu == b_end_mtu:
+                log.info(f"MTU match")
+                return True
+            else:
+                log.critical(OSPF_MTU_MATCH.ASSERT_MSG + f"""{self.network_device_ip} has {b_end_mtu}, but {self.watcher_internal_ip} has {a_end_mtu}""")
+                return False
 
 class IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE:
 
