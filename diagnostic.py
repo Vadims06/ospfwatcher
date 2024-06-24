@@ -1,4 +1,5 @@
 from abc import abstractmethod
+import re
 from scapy.all import AsyncSniffer, IP, Raw, SndRcvList, PacketList, sniff
 from scapy.config import conf
 import netns
@@ -11,6 +12,51 @@ from scapy.contrib.ospf import *
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
+import subprocess
+import tempfile
+
+class LinuxCommandNotFound(Exception):
+    pass
+
+class LINUX_HOST:
+
+    @staticmethod
+    def subprocess_output(command, if_raise=None):
+
+        # Use tempfile, allowing a larger amount of memory. The subprocess.Popen
+        # docs warn that the data read is buffered in memory. They suggest not to
+        # use subprocess.PIPE if the data size is large or unlimited.
+        try:
+            with tempfile.TemporaryFile() as stdout_f, tempfile.TemporaryFile() as stderr_f:
+                proc = subprocess.Popen(command, stdout=stdout_f, stderr=stderr_f)
+                proc.wait()
+                stderr_f.seek(0)
+                err = stderr_f.read()
+                stdout_f.seek(0)
+                output = stdout_f.read()
+        except:
+            _msg = f"The {command} command is not available. Make sure it's installed."
+            log.critical(_msg)
+            if if_raise:
+                raise LinuxCommandNotFound(_msg)
+        return output, err, proc.returncode
+    
+    def get_conntrack(self, if_raise=None):
+        """ Return a list of conntracks"""
+        conntracks_ll = []
+        out, err, returncode = self.subprocess_output(['conntrack', '-L'], if_raise=if_raise)
+        if out is not None and isinstance(out, bytes):
+            out = out.decode('utf-8')
+        if returncode == 0:
+            conntrack_re = re.compile(r'(?P<proto_name>\w+)\s+(?P<proto_num>\d+).*src=(?P<inner_src_ip>[\d.]+)\s+dst=(?P<inner_dst_ip>[\d.]+)\s.*src=(?P<outer_src_ip>[\d.]+)\s+dst=(?P<outer_dst_ip>[\d.]+)')
+            conntrack_lines = out.splitlines()
+            for line in conntrack_lines:
+                conntrack_match = conntrack_re.match(line)
+                if conntrack_match:
+                    conntracks_ll.append(conntrack_match.groupdict())
+        else:
+            log.critical(f"Error executing conntrack: {err}")
+        return conntracks_ll
 
 class BASE:
 
@@ -156,6 +202,26 @@ class WATCHER_HOST(BASE):
     def is_ospf_available(self):
         ospf_availability = OSPF_AVAILABILITY(self.watcher_internal_ip, self.network_device_ip)
         return ospf_availability.check(self)
+    
+    def does_conntrack_exist_for_gre(self):
+        """ Check if connection for the network device exist. If new watcher has been created - no conntrack should exist for the same device
+        gre      47 29 src=169.254.4.2 dst=192.168.1.35 srckey=0x0 dstkey=0x0 src=192.168.1.35 dst=192.168.1.33 srckey=0x0 dstkey=0x0 mark=0 use=1
+
+        """
+        conntracks_ll = LINUX_HOST().get_conntrack()
+        for conntrack in conntracks_ll:
+            if conntrack['proto_name'] != 'gre':
+                continue
+            if conntrack['inner_dst_ip'] == self.network_device_ip:
+                log.critical(
+                    f"""conntrack found {conntrack} for {self.network_device_ip}.
+                    Remove it running:
+                    sudo conntrack -D --src={self.conntrack['inner_src_ip']} or
+                    sudo conntrack -D --dst={self.network_device_ip}"""
+                )
+                return True
+        log.info(f"No conntrack connections found. Good to proceed.")
+
 
 class IPTABLE_ENTRY_IP:
     def __init__(self, ip:str) -> None:
@@ -284,7 +350,7 @@ class IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE:
         try:
             import iptc
         except Exception as e:
-            print(f"Iptables checks are ignored")
+            log.info(f"Iptables checks are ignored, {e}")
             return True
         existed_nat_records_hash = set()
         for nat_table_row in iptc.easy.dump_chain('nat', 'PREROUTING', ipv6=False):
