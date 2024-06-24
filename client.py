@@ -68,6 +68,13 @@ class WATCHER_CONFIG:
         else:
             raise ValueError(f"Watcher{watcher_num} was not found")
 
+    def diagnostic_watcher_host(self):
+        return diagnostic.WATCHER_HOST(
+            if_names=[self.host_veth],
+            watcher_internal_ip=self.p2p_veth_watcher_ip,
+            network_device_ip=self.gre_tunnel_network_device_ip
+        )
+
     @property
     def p2p_veth_network_obj(self):
         p2p_super_network_obj = ipaddress.ip_network(self.P2P_VETH_SUPERNET_W_MASK)
@@ -256,10 +263,13 @@ class WATCHER_CONFIG:
             ruamel_yaml_default_mode.dump(watcher_config_yml, s)
             f.write(s.getvalue())
 
-    def do_add_watcher_prechecks(self):
+    def do_watcher_postchecks(self):
         if os.path.exists(self.watcher_folder_path):
             raise ValueError(f"Watcher{self.watcher_num} with GRE{self.gre_tunnel_number} already exists")
         # TODO, check if GRE with the same tunnel destination already exist without root access
+        diag_watcher_host = self.diagnostic_watcher_host()
+        diagnostic.IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE.check(self.gre_tunnel_network_device_ip)
+        diag_watcher_host.does_conntrack_exist_for_gre()
 
     @staticmethod
     def do_print_banner():
@@ -354,8 +364,10 @@ class WATCHER_CONFIG:
 
     def add_watcher(self):
         self.do_print_banner()
+        # pre-check mandatory Linux tools installed
+        diagnostic.LINUX_HOST().get_conntrack(if_raise=True)
         self.add_watcher_dialog()
-        self.do_add_watcher_prechecks()
+        self.do_watcher_postchecks()
         # create folder
         self.create_folder_with_settings()
         print(f"Config has been successfully generated!")
@@ -370,23 +382,24 @@ class WATCHER_CONFIG:
     def diagnostic(self):
         print(f"Diagnostic connection is started")
         self.import_from(watcher_num=args.watcher_num)
-        watcher_host_dump = diagnostic.WATCHER_HOST(
+        diag_watcher_host = diagnostic.WATCHER_HOST(
             if_names=[self.host_veth],
             watcher_internal_ip=self.p2p_veth_watcher_ip,
             network_device_ip=self.gre_tunnel_network_device_ip
         )
-        # print(f"Please wait {watcher_host_dump.DUMP_FILTER_TIMEOUT} sec")
-        watcher_host_dump.run()
+        diag_watcher_host.does_conntrack_exist_for_gre()
+        # print(f"Please wait {diag_watcher_host.DUMP_FILTER_TIMEOUT} sec")
+        diag_watcher_host.run()
         if not diagnostic.IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE.check(self.gre_tunnel_network_device_ip):
             sys.exit()
-        if watcher_host_dump.is_watcher_alive:
+        if diag_watcher_host.is_watcher_alive:
             diagnostic.IPTABLES_FRR_NETNS_FORWARD_TO_NETWORK_DEVICE_BEFORE_NAT.check(self.gre_tunnel_network_device_ip)
-        if watcher_host_dump.is_network_device_alive:
+        if diag_watcher_host.is_network_device_alive:
             diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_FORWARD_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
             diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
         # OSPF
-        watcher_host_dump.is_ospf_available()
-        watcher_host_dump.ospf_mtu_match_check()
+        diag_watcher_host.is_ospf_available()
+        diag_watcher_host.ospf_mtu_match_check()
 
 
 if __name__ == '__main__':
