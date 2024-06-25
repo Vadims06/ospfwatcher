@@ -40,6 +40,8 @@ class WATCHER_CONFIG:
         self.ospf_area_num = 1
         self.host_interface_device_ip = ""
         self.protocol = protocol
+        self.asn = 0
+        self.organisation_name = ""
 
     def gen_next_free_number(self):
         """ Each Watcher installation has own sequense number starting from 1 """
@@ -245,6 +247,10 @@ class WATCHER_CONFIG:
         # remember user input for further user, i.e diagnostic
         watcher_config_yml['topology']['defaults']['labels'].update({'gre_num': int(self.gre_tunnel_number)})
         watcher_config_yml['topology']['defaults']['labels'].update({'gre_tunnel_network_device_ip': self.gre_tunnel_network_device_ip})
+        watcher_config_yml['topology']['defaults']['labels'].update({'asn': self.asn})
+        watcher_config_yml['topology']['defaults']['labels'].update({'organisation_name': self.organisation_name})
+        # rewrite env
+        watcher_config_yml['topology']['defaults'].update({'env': {'ASN': self.asn}})
         # Config
         watcher_config_yml['topology']['nodes']['h1']['exec'] = self.exec_cmds()
         watcher_config_yml['topology']['links'] = [{'endpoints': [f'{self.ROUTER_NODE_NAME}:veth1', f'host:{self.host_veth}']}]
@@ -267,9 +273,10 @@ class WATCHER_CONFIG:
         if os.path.exists(self.watcher_folder_path):
             raise ValueError(f"Watcher{self.watcher_num} with GRE{self.gre_tunnel_number} already exists")
         # TODO, check if GRE with the same tunnel destination already exist without root access
-        diag_watcher_host = self.diagnostic_watcher_host()
-        diagnostic.IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE.check(self.gre_tunnel_network_device_ip)
-        diag_watcher_host.does_conntrack_exist_for_gre()
+        # Requires root access. TODO https://stackoverflow.com/questions/72015197/allow-non-root-user-of-container-to-execute-binaries-that-need-capabilities
+        # diag_watcher_host = self.diagnostic_watcher_host()
+        # diagnostic.IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE.check(self.gre_tunnel_network_device_ip)
+        # diag_watcher_host.does_conntrack_exist_for_gre()
 
     @staticmethod
     def do_print_banner():
@@ -328,6 +335,11 @@ class WATCHER_CONFIG:
         # Host interface name for NAT
         while not self.host_interface_device_ip:
             self.host_interface_device_ip = self.do_check_ip(input("[6]Watcher host IP address: "))
+        # Tags
+        self.asn = input("[Optional] AS number, where OSPF is configured: ")
+        if not self.asn and not self.asn.isdigit():
+            self.asn = 0
+        self.organisation_name = input("[Optional] organisation name: ")
     
     def exec_cmds(self):
         return [
