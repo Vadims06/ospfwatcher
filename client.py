@@ -41,7 +41,7 @@ class WATCHER_CONFIG:
         self.host_interface_device_ip = ""
         self.protocol = protocol
         self.asn = 0
-        self.organisation_name = ""
+        self.watcher_name = ""
 
     def gen_next_free_number(self):
         """ Each Watcher installation has own sequense number starting from 1 """
@@ -248,15 +248,15 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['defaults']['labels'].update({'gre_num': int(self.gre_tunnel_number)})
         watcher_config_yml['topology']['defaults']['labels'].update({'gre_tunnel_network_device_ip': self.gre_tunnel_network_device_ip})
         watcher_config_yml['topology']['defaults']['labels'].update({'asn': self.asn})
-        watcher_config_yml['topology']['defaults']['labels'].update({'organisation_name': self.organisation_name})
-        # rewrite env
-        watcher_config_yml['topology']['defaults'].update({'env': {'ASN': self.asn}})
+        watcher_config_yml['topology']['defaults']['labels'].update({'watcher_name': self.watcher_name})
         # Config
         watcher_config_yml['topology']['nodes']['h1']['exec'] = self.exec_cmds()
         watcher_config_yml['topology']['links'] = [{'endpoints': [f'{self.ROUTER_NODE_NAME}:veth1', f'host:{self.host_veth}']}]
         # Watcher
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['network-mode'] = f"container:{self.ROUTER_NODE_NAME}"
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['binds'].append(f"../logs/{self.watcher_log_file_name}:/home/watcher/watcher/logs/watcher.log")
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME].update({'env': {'ASN': self.asn}})
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_NAME': self.watcher_name})
         # OSPF XDP filter, listen only
         # watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['image'] = self.OSPF_FILTER_NODE_IMAGE
         # watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['network-mode'] = "host"
@@ -339,7 +339,7 @@ class WATCHER_CONFIG:
         self.asn = input("[Optional] AS number, where OSPF is configured: ")
         if not self.asn and not self.asn.isdigit():
             self.asn = 0
-        self.organisation_name = input("[Optional] organisation name: ")
+        self.watcher_name = input("[Optional] organisation name: ")
     
     def exec_cmds(self):
         return [
