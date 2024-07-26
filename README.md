@@ -58,9 +58,6 @@ HTTP POST messages can be easily accepted by messengers, which allows to get ins
 Here is a lab for tracking OSPF topology changes placed here **containerlab/frr01**. Watcher logs:  
 ![](docs/ospfwatcher_containerlab.png)
 ```
-router4(config-if)# ip ospf cost 4444
-2024-07-22T20:19:05Z,watcher-local,metric,10.10.10.5,changed,old_cost:10,new_cost:444,10.10.10.4,,
-
 router4(config-if)# shutdown
 2024-07-22T20:20:04Z,watcher-local,host,10.10.10.4,down,10.10.10.5,,
 2024-07-22T20:20:04Z,watcher-local,metric,10.10.10.4,changed,old_cost:10,new_cost:-1,10.10.10.5,,
@@ -70,6 +67,9 @@ router4(config-if)# no shutdown
 2024-07-22T21:54:59Z,watcher-local,host,10.10.10.5,up,10.10.10.4,,
 2024-07-22T21:54:59Z,watcher-local,metric,10.10.10.5,changed,old_cost:-1,new_cost:10,10.10.10.4,,
 
+router4(config-if)# ip ospf cost 4444
+2024-07-22T20:19:05Z,watcher-local,metric,10.10.10.5,changed,old_cost:10,new_cost:4444,10.10.10.4,,
+
 router5(config)# ip route 8.8.0.64/30 Null0
 2024-07-22T20:24:08Z,watcher-local,network,8.8.0.60/30,changed,old_cost:-1,new_cost:12,10.10.10.5,,,external,1
 2024-07-22T20:24:08Z,watcher-local,network,8.8.0.60/30,up,10.10.10.5,,
@@ -77,10 +77,6 @@ router5(config)# ip route 8.8.0.64/30 Null0
 router4(config-router)# redistribute static metric 444 metric-type 2
 2024-07-22T21:04:23Z,watcher-local,network,4.4.4.10/32,changed,old_cost:-1,new_cost:444,10.10.10.4,,,external,2
 2024-07-22T21:04:23Z,watcher-local,network,4.4.4.10/32,up,10.10.10.4,,
-
-router2(config-if)# ip ospf cost 222
-2024-07-22T21:55:32Z,watcher-local,metric,10.10.10.3,changed,old_cost:10,new_cost:222,10.10.10.2,,
-2024-07-22T21:55:32Z,watcher-local,network,192.168.23.0/24,changed,old_cost:10,new_cost:222,10.10.10.2,,,internal,0
 
 router2(config-if)# shutdown
 2024-07-20T13:42:43Z,watcher-local,host,10.10.10.2,down,10.10.10.3,,
@@ -95,6 +91,10 @@ router2(config-if)# no shutdown
 2024-07-22T20:29:43Z,watcher-local,metric,10.10.10.2,changed,old_cost:-1,new_cost:10,10.10.10.3,,
 2024-07-22T20:29:53Z,watcher-local,host,10.10.10.3,up,10.10.10.2,,
 2024-07-22T20:29:53Z,watcher-local,metric,10.10.10.3,changed,old_cost:-1,new_cost:10,10.10.10.2,,
+
+router2(config-if)# ip ospf cost 222
+2024-07-22T21:55:32Z,watcher-local,metric,10.10.10.3,changed,old_cost:10,new_cost:222,10.10.10.2,,
+2024-07-22T21:55:32Z,watcher-local,network,192.168.23.0/24,changed,old_cost:10,new_cost:222,10.10.10.2,,,internal,0
 ```
 
 ## How to setup
