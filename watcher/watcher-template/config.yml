@@ -17,7 +17,6 @@ topology:
         WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log" # Watcher -> Export. default is local dir logs/watcher.log
         OSPFD_DUMP_FILE_DIR: "/var/log/frr/ospfd.log"
       binds:
-        - router/ospfd.log:/var/log/frr/ospfd.log # FRR -> Watcher
         # - ../logs/watcher1-gre1011.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
         # For crash dump logs if any
         - ../logs/:/home/watcher/watcher/logs/
@@ -30,7 +29,6 @@ topology:
       kind: linux
       image: quay.io/frrouting/frr:8.5.4
       binds:
-        - router/ospfd.log:/var/log/frr/ospfd.log
         - router/daemons:/etc/frr/daemons
         - router/frr.conf:/etc/frr/frr.conf
         - router/vtysh.conf:/etc/frr/vtysh.conf

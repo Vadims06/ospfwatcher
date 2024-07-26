@@ -1,25 +1,7 @@
-# IS-IS watcher. Tracking IS-IS topology changes in Real-Time
+# OSPF watcher. Tracking OSPF topology changes in Real-Time
 
-![IS-IS watcher containerlab](container_lab.drawio.png)
-This lab consists of 6 FRR routers and a single IS-IS Watcher. Each router is pre-configured for being in IS-IS domain with different network type. Topology changes are printed in a text file only (which is enough for testing), for getting logs exported to ELK or Topolograph (to see network changes on a map) start `docker-compose` files and follow instructions on main README.
+![OSPF watcher containerlab](ospfwatcher_containerlab.png)
 
-### IS-IS Topology Watcher
-IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through a specially established IS-IS adjacency between IS-IS Watcher and one of the network device. The tool logs IS-IS events into a static file, which can be exported by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification.
-
-#### Detected network events:
-* IS-IS neighbor adjacency Up/Down
-* IS-IS link cost changes
-* IS-IS networks appearance/disappearance from the topology
-
-### Supported IS-IS TLV 
-| TLV name                         | TLV |
-|----------------------------------|-----|
-| IS Reachability                  | 2   |
-| Extended IS Reachability   (new) | 22  |
-| IPv4 Internal Reachability (old) | 128 |
-| IPv4 External Reachability (old) | 130 |
-| Extended IPv4 Reachability (new) | 135 |
-| IPv6 Reachability                | 236 |  
 
 ## Quickstart
 
@@ -40,55 +22,93 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
     sudo tail -f watcher/watcher.log
     ```
 
-5. Change IS-IS settings on lab' routers. Connect to a router
+5. Change OSPF settings on lab' routers. Connect to a router
     ```
     sudo docker exec -it clab-frr01-router2 vtysh
     ```
 
-### IS-IS Watcher logs location
+### OSPF Watcher logs location
 Available under `watcher` folder. To see them:
 ```
 sudo tail -f watcher/watcher.log
 ```
 
-### Logs sample 1  
+### OSPF Watcher logs
 ```
-2023-01-01T00:00:00Z,demo-watcher,1,host,0200.1001.0002,down,0200.1001.0003,01Jan2023_00h00m00s_7_hosts
+router4(config-if)# ip ospf cost 4444
+2024-07-22T20:19:05Z,watcher-local,metric,10.10.10.5,changed,old_cost:4444,new_cost:444,10.10.10.4,,
+
+router4(config-if)# shutdown
+2024-07-22T20:20:04Z,watcher-local,host,10.10.10.4,down,10.10.10.5,,
+2024-07-22T20:20:04Z,watcher-local,metric,10.10.10.4,changed,old_cost:10,new_cost:-1,10.10.10.5,,
+
+router4(config-if)# no shutdown
+2024-07-22T21:54:49Z,watcher-local,host,10.10.10.4,up,10.10.10.5,,
+2024-07-22T21:54:59Z,watcher-local,host,10.10.10.5,up,10.10.10.4,,
+2024-07-22T21:54:59Z,watcher-local,metric,10.10.10.5,changed,old_cost:-1,new_cost:444,10.10.10.4,,
+
+router5(config)# ip route 8.8.0.64/30 Null0
+2024-07-22T20:24:08Z,watcher-local,network,8.8.0.60/30,changed,old_cost:-1,new_cost:12,10.10.10.5,,,external,1
+2024-07-22T20:24:08Z,watcher-local,network,8.8.0.60/30,up,10.10.10.5,,
+
+router4(config-router)# redistribute static metric 444 metric-type 2
+2024-07-22T21:04:23Z,watcher-local,network,4.4.4.10/32,changed,old_cost:-1,new_cost:444,10.10.10.4,,,external,2
+2024-07-22T21:04:23Z,watcher-local,network,4.4.4.10/32,up,10.10.10.4,,
+
+router2(config-if)# ip ospf cost 222
+2024-07-22T21:55:32Z,watcher-local,metric,10.10.10.3,changed,old_cost:10,new_cost:222,10.10.10.2,,
+2024-07-22T21:55:32Z,watcher-local,network,192.168.23.0/24,changed,old_cost:10,new_cost:222,10.10.10.2,,,internal,0
+
+router2(config-if)# shutdown
+2024-07-20T13:42:43Z,watcher-local,host,10.10.10.2,down,10.10.10.3,,
+2024-07-22T20:28:06Z,watcher-local,metric,10.10.10.2,changed,old_cost:10,new_cost:-1,10.10.10.3,,
+2024-07-22T20:28:06Z,watcher-local,network,192.168.23.0/24,down,10.10.10.3,,
+2024-07-22T20:28:06Z,watcher-local,network,192.168.23.0/24,changed,old_cost:10,new_cost:-1,10.10.10.3,,,internal,0
+
+router2(config-if)# no shutdown
+2024-07-22T20:29:33Z,watcher-local,network,192.168.23.0/24,up,10.10.10.3,,
+2024-07-22T20:29:33Z,watcher-local,network,192.168.23.0/24,changed,old_cost:-1,new_cost:10,10.10.10.3,,,internal,0
+2024-07-22T20:29:43Z,watcher-local,host,10.10.10.2,up,10.10.10.3,,
+2024-07-22T20:29:43Z,watcher-local,metric,10.10.10.2,changed,old_cost:-1,new_cost:10,10.10.10.3,,
+2024-07-22T20:29:53Z,watcher-local,host,10.10.10.3,up,10.10.10.2,,
+2024-07-22T20:29:53Z,watcher-local,metric,10.10.10.3,changed,old_cost:-1,new_cost:10,10.10.10.2,,
 ```
 
-* `2023-01-01T00:00:00Z` - event timestamp
-* `demo-watcher` - name of watcher
-* `1` - IS-IS level
+### Logs sample 1  
+```
+2024-07-22T20:20:04Z,watcher-local,host,10.10.10.4,down,10.10.10.5,12345,01Jan2023_00h00m00s_7_hosts
+```
+
+* `2024-07-22T20:20:04Z` - event timestamp
+* `watcher-local` - name of watcher
 * `host` - event name: `host`, `network`, `metric`
-* `0200.1001.0002` - event object. Watcher detected an event related to `0200.1001.0002` host
+* `10.10.10.4` - event object. Watcher detected an event related to `10.10.10.4` host
 * `down` - event status: `down`, `up`, `changed`
-* `0200.1001.0003` - event detected by this node.
+* `10.10.10.5` - event detected by this node.
+* `12345` AS number
 * `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-*Summary: `0200.1001.0003` detected that `0200.1001.0002` host went down at `2023-01-01T00:00:00Z` in IS-IS level 1*
+*Summary: Router with OSPF Router ID `10.10.10.5` detected that `10.10.10.4` host went down at `2024-07-22T20:20:04Z`*
 
 ### Logs sample 2  
 ```
-2023-01-01T00:00:00Z,isis-watcher,2,metric,4ffe::192:168:23:2/127,changed,old_cost:10,new_cost:12,0200.1001.0002,stub,0200.1001.0002,01Jan2023_00h00m00s_7_hosts
+2024-07-22T20:24:08Z,watcher-local,network,8.8.0.60/30,changed,old_cost:-1,new_cost:12,10.10.10.5,12345,01Jan2023_00h00m00s_7_hosts,external,1
+
 ```
 
-* `2023-01-01T00:00:00Z` - event timestamp
-* `isis-watcher` - name of watcher
-* `2` - IS-IS level
+* `2024-07-22T20:24:08Z` - event timestamp
+* `watcher-local` - name of watcher
 * `metric` - event name: `host`, `network`, `metric`
-* `4ffe::192:168:23:2/127` - event object. Watcher detected an event related to 4ffe::192:168:23:2/127` subnet
+* `8.8.0.60/30` - event object. Watcher detected an event related to `8.8.0.60/30` subnet
 * `changed` - event status: `down`, `up`, `changed`
-* `10` - old cost
+* `-1` - old cost -1 it means that it's new network, Watcher didn't know this network before
 * `12` - new cost
-* `0200.1001.0002` - event detected by this node.
-* `stub` - subnet type
-* `0200.1001.0002` - since it's a stub network it has router id of terminated node.
+* `10.10.10.5` - event detected by this node.
+* `12345` AS number
 * `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-*Summary: `0200.1001.0002` detected that metric of `4ffe::192:168:23:2/127` stub network changed from `10` to `12` at `2023-01-01T00:00:00Z` in IS-IS level 2*
+* `external` network type: `internal`, `external`
+* `1` - External network type 1. Possible options: 1, 2, 0 (for internal/stub networks)
+*Summary: Router with OSPF Router ID `10.10.10.5` detected new Extermal Type-1 network `8.8.0.60/30` with cost `12` at `2024-07-22T20:24:08Z`*
 
 
 Note:
 log file should have `systemd-network:systemd-journal` ownership
-
-> **Note**  
-> This lab is based on simple FRR for building topology based on frr routers, more information about it is available here: https://www.brianlinkletter.com/2021/05/use-containerlab-to-emulate-open-source-routers/
-

@@ -1,4 +1,3 @@
-sudo chown systemd-network:systemd-journal router1/isisd.log
 sudo chown systemd-network:systemd-journal watcher/watcher.log
 is_exist=$(brctl show br-dr)
 if [[ -z "$is_exist" ]]; then

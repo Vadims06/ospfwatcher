@@ -156,9 +156,9 @@ class WATCHER_HOST(BASE):
                 # Layer IP not found
                 pass
         log.critical(
-            """FRR watcher doesn't send IS-IS hellos over GRE. Please make sure that:
+            """FRR watcher doesn't send OSPF hellos over GRE. Please make sure that:
                 1.FRR is running\n
-                2.GRE1 is included into IS-IS process `sudo docker exec -it <watcher-router> vtysh`
+                2.GRE1 is included into OSPF process `sudo docker exec -it <watcher-router> vtysh`
             """)
         return False
 
@@ -173,7 +173,7 @@ class WATCHER_HOST(BASE):
                 # Layer IP not found
                 pass
         log.critical(
-            """Network device doesn't send IS-IS hellos over GRE. Please make sure that:
+            """Network device doesn't send OSPF hellos over GRE. Please make sure that:
                 1.Network device has GRE interface configured \n
                 2.Network device can reach Watcher's host
             """)
@@ -182,13 +182,13 @@ class WATCHER_HOST(BASE):
     def report(self):
         if not self.is_watcher_alive:
             log.critical(
-                """FRR watcher doesn't send IS-IS hellos over GRE. Please make sure that:
+                """FRR watcher doesn't send OSPF hellos over GRE. Please make sure that:
                     1.FRR is running\n
-                    2.GRE1 is included into IS-IS process `sudo docker exec -it <watcher-router> vtysh`
+                    2.GRE1 is included into OSPF process `sudo docker exec -it <watcher-router> vtysh`
                 """)
         if not self.is_network_device_alive:
             log.critical(
-                """Network device doesn't send IS-IS hellos over GRE. Please make sure that:
+                """Network device doesn't send OSPF hellos over GRE. Please make sure that:
                     1.Network device has GRE interface configured \n
                     2.Network device can reach Watcher's host
                 """)
@@ -216,7 +216,7 @@ class WATCHER_HOST(BASE):
                 log.critical(
                     f"""conntrack found {conntrack} for {self.network_device_ip}.
                     Remove it running:
-                    sudo conntrack -D --src={self.conntrack['inner_src_ip']} or
+                    sudo conntrack -D --src={conntrack['inner_src_ip']} or
                     sudo conntrack -D --dst={self.network_device_ip}"""
                 )
                 return True

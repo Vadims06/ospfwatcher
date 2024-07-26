@@ -6,7 +6,7 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 * OSPF networks appeared/disappeared from the topology
 
 ## Architecture
-![](docs/ospfwatcher_plus_topolograph_architecture.png)  
+![](docs/ospfwatcher_plus_topolograph_architecture_v2.png)  
 Each Watcher instance maintains all routes and updates within an isolated network namespace. This isolation ensures efficient monitoring without interference and prevent route leaks.
 
 > **Note**  
@@ -19,23 +19,23 @@ Click on the image in order zoom it.
 
 ## Discovering OSPF logs in Kibana. Examples
 OSPF cost changes on links  
-![](https://github.com/Vadims06/ospfwatcher/blob/774ffe06131e932bd0d87b430010523d942a2342/docs/cost-changes-raw-logs.png)
+![](docs/cost-changes-raw-logs.png)
 
 Logs if OSPF adjacency was Up/Down or any networks appeared/disappeared.  
-![](https://github.com/Vadims06/ospfwatcher/blob/774ffe06131e932bd0d87b430010523d942a2342/docs/host-updown-raw-logs.png)
+![](docs/host-updown-raw-logs.png)
 
 #### Topolograph OSPF Monitoring. New subnet event shows where the subnet appeared  
-![](https://github.com/Vadims06/topolograph/blob/56861d2d72399c92a6858346cd42171cbd6da4c7/docs/release-notes/v2.27/ospf_monitoring_new_subnet.PNG)  
+![](docs/ospf_monitoring_new_subnet.PNG)  
   
   
 #### Topolograph OSPF Monitoring. Filter any subnet-related events, select Change metric event
 new and old metric is shown
-![](https://github.com/Vadims06/topolograph/blob/56861d2d72399c92a6858346cd42171cbd6da4c7/docs/release-notes/v2.27/ospf_monitoring_change_metric.PNG) 
+![](docs/ospf_monitoring_change_metric.PNG) 
 
 #### Topolograph OSPF Monitoring. up/down link events
 Red timelines show link (~adjacency) down events, green one - up link (~adjacency).  
 Timeline `10.1.1.2-10.1.1.3` has been selected.
-![](https://github.com/Vadims06/topolograph/blob/56861d2d72399c92a6858346cd42171cbd6da4c7/docs/release-notes/v2.27/ospf_monitoring_down_link.PNG)
+![](docs/ospf_monitoring_down_link.PNG)
 
 ## OSPF topology change notification/alarming via Zabbix. Examples
 Zabbix's dashboard with active OSPF alarms detected by OSPFWatcher  
@@ -52,7 +52,50 @@ If a subnet was removed from OSPF node (the node withdrew it from the announceme
 
 #### Slack notification
 HTTP POST messages can be easily accepted by messengers, which allows to get instant notifications of OSPF topology changes:
-![](https://github.com/Vadims06/ospfwatcher/blob/4596d4dfe368bf3500ab1cf64236946bbe4e45fb/docs/slack/slack_notification.PNG)
+![](docs/slack/slack_notification.PNG)
+
+#### Text logging
+Here is a lab for tracking OSPF topology changes placed here **containerlab/frr01**. Watcher logs:  
+![](docs/ospfwatcher_containerlab.png)
+```
+router4(config-if)# ip ospf cost 4444
+2024-07-22T20:19:05Z,watcher-local,metric,10.10.10.5,changed,old_cost:10,new_cost:444,10.10.10.4,,
+
+router4(config-if)# shutdown
+2024-07-22T20:20:04Z,watcher-local,host,10.10.10.4,down,10.10.10.5,,
+2024-07-22T20:20:04Z,watcher-local,metric,10.10.10.4,changed,old_cost:10,new_cost:-1,10.10.10.5,,
+
+router4(config-if)# no shutdown
+2024-07-22T21:54:49Z,watcher-local,host,10.10.10.4,up,10.10.10.5,,
+2024-07-22T21:54:59Z,watcher-local,host,10.10.10.5,up,10.10.10.4,,
+2024-07-22T21:54:59Z,watcher-local,metric,10.10.10.5,changed,old_cost:-1,new_cost:10,10.10.10.4,,
+
+router5(config)# ip route 8.8.0.64/30 Null0
+2024-07-22T20:24:08Z,watcher-local,network,8.8.0.60/30,changed,old_cost:-1,new_cost:12,10.10.10.5,,,external,1
+2024-07-22T20:24:08Z,watcher-local,network,8.8.0.60/30,up,10.10.10.5,,
+
+router4(config-router)# redistribute static metric 444 metric-type 2
+2024-07-22T21:04:23Z,watcher-local,network,4.4.4.10/32,changed,old_cost:-1,new_cost:444,10.10.10.4,,,external,2
+2024-07-22T21:04:23Z,watcher-local,network,4.4.4.10/32,up,10.10.10.4,,
+
+router2(config-if)# ip ospf cost 222
+2024-07-22T21:55:32Z,watcher-local,metric,10.10.10.3,changed,old_cost:10,new_cost:222,10.10.10.2,,
+2024-07-22T21:55:32Z,watcher-local,network,192.168.23.0/24,changed,old_cost:10,new_cost:222,10.10.10.2,,,internal,0
+
+router2(config-if)# shutdown
+2024-07-20T13:42:43Z,watcher-local,host,10.10.10.2,down,10.10.10.3,,
+2024-07-22T20:28:06Z,watcher-local,metric,10.10.10.2,changed,old_cost:10,new_cost:-1,10.10.10.3,,
+2024-07-22T20:28:06Z,watcher-local,network,192.168.23.0/24,down,10.10.10.3,,
+2024-07-22T20:28:06Z,watcher-local,network,192.168.23.0/24,changed,old_cost:10,new_cost:-1,10.10.10.3,,,internal,0
+
+router2(config-if)# no shutdown
+2024-07-22T20:29:33Z,watcher-local,network,192.168.23.0/24,up,10.10.10.3,,
+2024-07-22T20:29:33Z,watcher-local,network,192.168.23.0/24,changed,old_cost:-1,new_cost:10,10.10.10.3,,,internal,0
+2024-07-22T20:29:43Z,watcher-local,host,10.10.10.2,up,10.10.10.3,,
+2024-07-22T20:29:43Z,watcher-local,metric,10.10.10.2,changed,old_cost:-1,new_cost:10,10.10.10.3,,
+2024-07-22T20:29:53Z,watcher-local,host,10.10.10.3,up,10.10.10.2,,
+2024-07-22T20:29:53Z,watcher-local,metric,10.10.10.3,changed,old_cost:-1,new_cost:10,10.10.10.2,,
+```
 
 ## How to setup
 1. Choose a Linux host with Docker installed
@@ -93,12 +136,28 @@ Generate configuration files
 ```
 sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/ospf-watcher:latest python3 ./client.py --action add_watcher
 ```   
+Output:   
+```
++---------------------------+
+|  Watcher Host             |                       +-------------------+
+|  +------------+           |                       | Network device    |
+|  | netns FRR  |           |                       |                   |
+|  |            Tunnel [4]  |                       | Tunnel [4]        |
+|  |  gre1   [3]TunnelIP----+-----------------------+[2]TunnelIP        |
+|  |  eth1------+-vhost1    |       +-----+         | OSPF area num [5]|
+|  |            | Host IP[6]+-------+ LAN |--------[1]Device IP         |
+|  |            |           |       +-----+         |                   |
+|  +------------+           |                       |                   |
+|                           |                       +-------------------+
++---------------------------+
+[1]Network device IP [x.x.x.x]: 
+```
 The script will create:
 1. a folder under `watcher` folder with FRR configuration under `router` folder
 2. a containerlab configuration file with network settings
 3. an individual watcher log file in `watcher` folder.  
 
-To stop OSPF routes from being installed in the host's routing table, we the following policy has been applied on the watcher:
+OSPF routes of each Watcher instance stay isolated in watcher's network namespace. To stop OSPF routes from being installed even in the watcher's network namespace, we the following policy has been applied on the watcher:
 ```bash
 # quagga/config/ospfd.conf
 route-map TO_KERNEL deny 200

@@ -217,12 +217,11 @@ class WATCHER_CONFIG:
         os.chmod(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 0o755)
         # router folder inside watcher
         os.mkdir(self.router_folder_path)
-        for file_name in ["daemons", "ospfd.log"]:
+        for file_name in ["daemons"]:
             shutil.copyfile(
                 src=os.path.join(self.router_template_path, file_name),
                 dst=os.path.join(self.router_folder_path, file_name)
             )
-        os.chmod(os.path.join(self.router_folder_path, "ospfd.log"), 0o777)
         # Config generation
         env = Environment(
             loader=FileSystemLoader(self.router_template_path)
@@ -257,6 +256,8 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['binds'].append(f"../logs/{self.watcher_log_file_name}:/home/watcher/watcher/logs/watcher.log")
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME].update({'env': {'ASN': self.asn}})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_NAME': self.watcher_name})
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_INTERFACE': "veth1"})
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_LOGFILE': "/home/watcher/watcher/logs/watcher.log"})
         # OSPF XDP filter, listen only
         # watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['image'] = self.OSPF_FILTER_NODE_IMAGE
         # watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['network-mode'] = "host"
@@ -377,7 +378,7 @@ class WATCHER_CONFIG:
     def add_watcher(self):
         self.do_print_banner()
         # pre-check mandatory Linux tools installed
-        diagnostic.LINUX_HOST().get_conntrack(if_raise=True)
+        # diagnostic.LINUX_HOST().get_conntrack(if_raise=True) # Operation failed: sorry, you must be root or get CAP_NET_ADMIN capability to do this
         self.add_watcher_dialog()
         self.do_watcher_postchecks()
         # create folder
