@@ -194,8 +194,9 @@ ip ospf network type point-to-point
 Set GRE tunnel network where <GRE tunnel ip address> is placed to `quagga/config/ospfd.conf`  
 
 Check OSPF neighbor, if there is no OSPF adjacency between network device and OSPF Watcher, check troubleshooting `OSPF Watcher <-> Network device connection` section below (to run diagnostic script).  
-7. Start log export to Topolograph and/or ELK
+7. Start log export to Topolograph and/or ELK (optionally if you configured Step 2 or 3)  
 ```
+docker-compose build
 docker-compose up -d
 ```
 
