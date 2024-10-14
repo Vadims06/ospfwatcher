@@ -324,7 +324,7 @@ The stdin plugin is now waiting for input:
 ### Minimum Logstash version
  7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
 
-### Topolograph suit
+### Topolograph suite
 * OSPF Watcher [link](https://github.com/Vadims06/ospfwatcher)
 * IS-IS Watcher [link](https://github.com/Vadims06/isiswatcher)
 * Topolograph [link](https://github.com/Vadims06/topolograph)
