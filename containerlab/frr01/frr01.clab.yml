@@ -7,9 +7,10 @@ topology:
       kind: bridge
     ospf-watcher:
       kind: linux
-      image: vadims06/ospf-watcher:v2.0
-      network-mode: container:router1
-      startup-delay: 10
+      image: vadims06/ospf-watcher:latest
+      #network-mode: container:router1
+      network-mode: host
+      startup-delay: 30
       stages:
         create:
           wait-for:
@@ -41,6 +42,7 @@ topology:
     router1:
       kind: linux
       image: frrouting/frr:v8.4.1
+      network-mode: host
       binds:
         - router1/daemons:/etc/frr/daemons
         - router1/frr.conf:/etc/frr/frr.conf

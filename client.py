@@ -6,7 +6,7 @@ import re
 from ruamel.yaml import YAML
 from jinja2 import Environment, FileSystemLoader
 from io import StringIO
-import os
+import os, re
 import sys
 import enum
 
@@ -37,15 +37,23 @@ class WATCHER_CONFIG:
         self.gre_tunnel_ip_w_mask_network_device = ""
         self.gre_tunnel_ip_w_mask_watcher = ""
         self.gre_tunnel_number = 0
-        self.ospf_area_num = 1
+        self.ospf_area_num = "" # 0.0.0.0
         self.host_interface_device_ip = ""
         self.protocol = protocol
         self.asn = 0
+        self.organisation_name = ""
         self.watcher_name = ""
 
-    def gen_next_free_number(self):
+    @staticmethod
+    def gen_next_free_number():
         """ Each Watcher installation has own sequense number starting from 1 """
-        return len( self.get_existed_watchers() ) + 1
+        numbers = [int(folder_name.split('-')[0][-1]) for folder_name in WATCHER_CONFIG.get_existed_watchers() if '-' in folder_name]
+        expected_numbers = set(range(1, max(numbers) + 1))
+        if set(expected_numbers) == set(numbers):
+            next_number = len(numbers) + 1
+        else:
+            next_number = next(iter(expected_numbers - set(numbers)))
+        return next_number
 
     @staticmethod
     def get_existed_watchers():
@@ -53,6 +61,11 @@ class WATCHER_CONFIG:
         watcher_root_folder_path = os.path.join(os.getcwd(), WATCHER_CONFIG.WATCHER_ROOT_FOLDER)
         return [file for file in os.listdir(watcher_root_folder_path) if os.path.isdir(os.path.join(watcher_root_folder_path, file)) and file.startswith("watcher") and not file.endswith("template")]
 
+    def gen_watcher_number(self):
+        numbers = [folder_name.split('-')[0] for folder_name in self.get_existed_watchers() if '-' in folder_name]
+        expected_numbers = set(range(1, max(numbers) + 1))
+        missing_number = next(iter(expected_numbers - set(numbers)))
+        return missing_number
 
     def import_from(self, watcher_num):
         """
@@ -63,9 +76,11 @@ class WATCHER_CONFIG:
         for file in self.get_existed_watchers():
             watcher_match = watcher_re.match(file)
             if watcher_match and watcher_match.groupdict().get("watcher_num", "") == str(watcher_num):
-                self.gre_tunnel_number = int(watcher_match.groupdict().get("gre_num", 0))
+                # these two attributes are needed to build paths
                 self.protocol = watcher_match.groupdict().get("proto") if watcher_match.groupdict().get("proto") else self.protocol
-                self.gre_tunnel_network_device_ip = self.watcher_config_file_yml.get('topology', {}).get('defaults', {}).get('labels', {}).get('gre_tunnel_network_device_ip', '')
+                self.gre_tunnel_number = int(watcher_match.groupdict().get("gre_num", 0))
+                for label, value in self.watcher_config_file_yml.get('topology', {}).get('defaults', {}).get('labels', {}).items():
+                    setattr(self, label, value)
                 break
         else:
             raise ValueError(f"Watcher{watcher_num} was not found")
@@ -108,7 +123,16 @@ class WATCHER_CONFIG:
 
     @property
     def host_veth(self):
-        return f"vhost{self.gre_tunnel_number}"
+        """ Add organisation name at name of interface to allow different interfaces with the same GRE num """
+        linux_ip_link_peer_max_len = 15
+        vhost_inf_name = f"vhost{self.gre_tunnel_number}"
+        organisation_name_short = self.organisation_name[:linux_ip_link_peer_max_len - (len(vhost_inf_name)+1)] # 1 for dash
+        self._host_veth = f"{organisation_name_short}-{vhost_inf_name}" if organisation_name_short else vhost_inf_name
+        return self._host_veth
+
+    @host_veth.setter
+    def host_veth(self, value_from_yaml_import):
+        self._host_veth = value_from_yaml_import
 
     @property
     def watcher_root_folder_path(self):
@@ -182,6 +206,15 @@ class WATCHER_CONFIG:
             return ""
 
     @staticmethod
+    def do_check_area_num(area_num):
+        """ area only digits. max 32 it shouldn't be more. 0-4'294'967'295 FRR """
+        area_match = re.match('^\d{1,32}$', area_num)
+        area_in_ip_notation = ""
+        if area_match:
+            area_in_ip_notation = str(ipaddress.ip_address(int(area_match.group(0)))) if int(area_match.group(0)) != 0 else "0.0.0.0"
+        return area_in_ip_notation
+
+    @staticmethod
     def _get_digit_net_mask(ip_address_w_mask):
         return ipaddress.ip_interface(ip_address_w_mask).network.prefixlen
 
@@ -244,10 +277,15 @@ class WATCHER_CONFIG:
         watcher_config_yml = self.watcher_config_template_yml
         watcher_config_yml["name"] = self.watcher_folder_name
         # remember user input for further user, i.e diagnostic
-        watcher_config_yml['topology']['defaults']['labels'].update({'gre_num': int(self.gre_tunnel_number)})
+        watcher_config_yml['topology']['defaults']['labels'].update({'gre_tunnel_number': int(self.gre_tunnel_number)})
         watcher_config_yml['topology']['defaults']['labels'].update({'gre_tunnel_network_device_ip': self.gre_tunnel_network_device_ip})
+        watcher_config_yml['topology']['defaults']['labels'].update({'gre_tunnel_ip_w_mask_network_device': self.gre_tunnel_ip_w_mask_network_device})
+        watcher_config_yml['topology']['defaults']['labels'].update({'gre_tunnel_ip_w_mask_watcher': self.gre_tunnel_ip_w_mask_watcher})
+        watcher_config_yml['topology']['defaults']['labels'].update({'ospf_area_num': self.ospf_area_num})
         watcher_config_yml['topology']['defaults']['labels'].update({'asn': self.asn})
+        watcher_config_yml['topology']['defaults']['labels'].update({'organisation_name': self.organisation_name})
         watcher_config_yml['topology']['defaults']['labels'].update({'watcher_name': self.watcher_name})
+        watcher_config_yml['topology']['defaults']['labels'].update({'host_veth': self.host_veth})
         # Config
         watcher_config_yml['topology']['nodes']['h1']['exec'] = self.exec_cmds()
         watcher_config_yml['topology']['links'] = [{'endpoints': [f'{self.ROUTER_NODE_NAME}:veth1', f'host:{self.host_veth}']}]
@@ -256,14 +294,15 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['binds'].append(f"../logs/{self.watcher_log_file_name}:/home/watcher/watcher/logs/watcher.log")
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME].update({'env': {'ASN': self.asn}})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_NAME': self.watcher_name})
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'AREA_NUM': self.ospf_area_num})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_INTERFACE': "veth1"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_LOGFILE': "/home/watcher/watcher/logs/watcher.log"})
-        # OSPF XDP filter, listen only
+        # OSPF XDP filter, listen only. Not ready right now
         # watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['image'] = self.OSPF_FILTER_NODE_IMAGE
         # watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['network-mode'] = "host"
         # watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
         # Enable GRE after XDP filter
-        watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
+        # watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
         # with open(os.path.join(self.watcher_folder_path, "config.yml"), "w") as f:
         with open(self.watcher_config_file_path, "w") as f:
             s = StringIO()
@@ -288,7 +327,7 @@ class WATCHER_CONFIG:
 |  | netns FRR  |           |                       |                   |
 |  |            Tunnel [4]  |                       | Tunnel [4]        |
 |  |  gre1   [3]TunnelIP----+-----------------------+[2]TunnelIP        |
-|  |  eth1------+-vhost1    |       +-----+         | OSPF area num [5]|
+|  |  eth1------+-vhost1    |       +-----+         | OSPF area num [5] |
 |  |            | Host IP[6]+-------+ LAN |--------[1]Device IP         |
 |  |            |           |       +-----+         |                   |
 |  +------------+           |                       |                   |
@@ -332,15 +371,19 @@ class WATCHER_CONFIG:
             else:
                 self.gre_tunnel_number = int(self.gre_tunnel_number)
         # OSPF settings
-        self.ospf_area_num = input("[5]OSPF area number: ")
+        while not self.ospf_area_num:
+            self.ospf_area_num = self.do_check_area_num(input("[5]OSPF area number: "))
         # Host interface name for NAT
         while not self.host_interface_device_ip:
             self.host_interface_device_ip = self.do_check_ip(input("[6]Watcher host IP address: "))
         # Tags
-        self.asn = input("[Optional] AS number, where OSPF is configured: ")
+        self.asn = input("AS number, where OSPF is configured: ")
         if not self.asn and not self.asn.isdigit():
             self.asn = 0
-        self.watcher_name = input("[Optional] organisation name: ")
+        self.organisation_name = str(input("Organisation name: ")).lower()
+        self.watcher_name = str(input("watcher name: ")).lower().replace(" ", "-")
+        if not self.watcher_name:
+            self.watcher_name = "ospfwatcher-demo"
     
     def exec_cmds(self):
         return [
@@ -349,10 +392,10 @@ class WATCHER_CONFIG:
             f'ip address add {self.p2p_veth_host_ip_w_mask} dev {self.host_veth}',
             f'ip netns exec {self.netns_name} ip tunnel add gre1 mode gre local {str(self.p2p_veth_watcher_ip_obj)} remote {self.gre_tunnel_network_device_ip} ttl 100',
             f'ip netns exec {self.netns_name} ip address add {self.gre_tunnel_ip_w_mask_watcher} dev gre1',
-            f'sudo iptables -t nat -A POSTROUTING -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -j SNAT --to-source {self.host_interface_device_ip}',
-            f'sudo iptables -t nat -A PREROUTING -p gre -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} -j DNAT --to-destination {self.p2p_veth_watcher_ip}',
-            f'sudo iptables -t filter -A FORWARD -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT',
-            f'sudo iptables -t filter -A FORWARD -p gre -s {self.gre_tunnel_network_device_ip} -j ACCEPT', # do not set output interface
+            f'bash -c \'RULE="-t nat -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -j SNAT --to-source {self.host_interface_device_ip}"; sudo iptables -C POSTROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A POSTROUTING $$RULE\'',
+            f'bash -c \'RULE="-t nat -p gre -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} -j DNAT --to-destination {self.p2p_veth_watcher_ip}"; sudo iptables -C PREROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A PREROUTING $$RULE\'',
+            f'bash -c \'RULE="-t filter -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
+            f'bash -c \'RULE="-t filter -p gre -s {self.gre_tunnel_network_device_ip} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
             f'sudo ip netns exec {self.netns_name} ip link set mtu 1476 dev gre1', # 1476 - 24 GRE encap for OSPF MTU match
             f'sudo ip netns exec {self.netns_name} ip link set mtu 1500 dev veth1', # for xdp
             # enable GRE after applying XDP filter
@@ -367,7 +410,7 @@ class WATCHER_CONFIG:
         allowed_actions = [actions.value for actions in ACTIONS]
         if args.action not in allowed_actions:
             raise ValueError(f"Not allowed action. Supported actions: {', '.join(allowed_actions)}")
-        watcher_num = args.watcher_num if args.watcher_num else len( cls.get_existed_watchers() ) + 1
+        watcher_num = args.watcher_num if args.watcher_num else cls.gen_next_free_number()
         watcher_obj = cls(watcher_num)
         watcher_obj.run_command(args.action)
 

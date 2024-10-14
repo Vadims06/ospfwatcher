@@ -6,7 +6,7 @@
       "prefix": "clab",
       "mgmt": {
         "network": "clab",
-        "bridge": "br-8158ed34097f",
+        "bridge": "br-d418bc7820b5",
         "ipv4-subnet": "172.20.20.0/24",
         "ipv4-gw": "172.20.20.1",
         "ipv6-subnet": "2001:172:20:20::/64",
@@ -34,7 +34,7 @@
       "mgmt-ipv6-prefix-length": 0,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-8158ed34097f",
+        "clab-mgmt-net-bridge": "br-d418bc7820b5",
         "clab-node-group": "",
         "clab-node-kind": "bridge",
         "clab-node-lab-dir": "/home/ubuntu/ospfwatcher/containerlab/frr01/clab-frr01/br-dr",
@@ -46,8 +46,37 @@
       "port-bindings": [
       ]
     },
-    "router1": {
+    "ospf-watcher": {
       "index": "1",
+      "shortname": "ospf-watcher",
+      "longname": "clab-frr01-ospf-watcher",
+      "fqdn": "ospf-watcher.frr01.io",
+      "group": "",
+      "labdir": "/home/ubuntu/ospfwatcher/containerlab/frr01/clab-frr01/ospf-watcher",
+      "kind": "linux",
+      "image": "vadims06/ospf-watcher:latest",
+      "mgmt-net": "",
+      "mgmt-intf": "",
+      "mgmt-ipv4-address": "",
+      "mgmt-ipv4-prefix-length": 0,
+      "mgmt-ipv6-address": "",
+      "mgmt-ipv6-prefix-length": 0,
+      "mac-address": "",
+      "labels": {
+        "clab-mgmt-net-bridge": "br-d418bc7820b5",
+        "clab-node-group": "",
+        "clab-node-kind": "linux",
+        "clab-node-lab-dir": "/home/ubuntu/ospfwatcher/containerlab/frr01/clab-frr01/ospf-watcher",
+        "clab-node-name": "ospf-watcher",
+        "clab-node-type": "",
+        "clab-topo-file": "/home/ubuntu/ospfwatcher/containerlab/frr01/frr01.clab.yml",
+        "containerlab": "frr01"
+      },
+      "port-bindings": [
+      ]
+    },
+    "router1": {
+      "index": "2",
       "shortname": "router1",
       "longname": "clab-frr01-router1",
       "fqdn": "router1.frr01.io",
@@ -57,13 +86,13 @@
       "image": "frrouting/frr:v8.4.1",
       "mgmt-net": "",
       "mgmt-intf": "",
-      "mgmt-ipv4-address": "172.20.20.11",
-      "mgmt-ipv4-prefix-length": 24,
-      "mgmt-ipv6-address": "2001:172:20:20::3",
-      "mgmt-ipv6-prefix-length": 64,
+      "mgmt-ipv4-address": "",
+      "mgmt-ipv4-prefix-length": 0,
+      "mgmt-ipv6-address": "",
+      "mgmt-ipv6-prefix-length": 0,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-8158ed34097f",
+        "clab-mgmt-net-bridge": "br-d418bc7820b5",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/ubuntu/ospfwatcher/containerlab/frr01/clab-frr01/router1",
@@ -73,22 +102,10 @@
         "containerlab": "frr01"
       },
       "port-bindings": [
-        {
-          "host-ip": "0.0.0.0",
-          "host-port": 65001,
-          "port": 2604,
-          "protocol": "tcp"
-        },
-        {
-          "host-ip": "::",
-          "host-port": 65001,
-          "port": 2604,
-          "protocol": "tcp"
-        }
       ]
     },
     "router2": {
-      "index": "2",
+      "index": "3",
       "shortname": "router2",
       "longname": "clab-frr01-router2",
       "fqdn": "router2.frr01.io",
@@ -98,13 +115,13 @@
       "image": "frrouting/frr:v8.4.1",
       "mgmt-net": "",
       "mgmt-intf": "",
-      "mgmt-ipv4-address": "172.20.20.12",
+      "mgmt-ipv4-address": "172.20.20.2",
       "mgmt-ipv4-prefix-length": 24,
-      "mgmt-ipv6-address": "2001:172:20:20::4",
+      "mgmt-ipv6-address": "2001:172:20:20::2",
       "mgmt-ipv6-prefix-length": 64,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-8158ed34097f",
+        "clab-mgmt-net-bridge": "br-d418bc7820b5",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/ubuntu/ospfwatcher/containerlab/frr01/clab-frr01/router2",
@@ -117,7 +134,7 @@
       ]
     },
     "router3": {
-      "index": "3",
+      "index": "4",
       "shortname": "router3",
       "longname": "clab-frr01-router3",
       "fqdn": "router3.frr01.io",
@@ -127,13 +144,13 @@
       "image": "frrouting/frr:v8.4.1",
       "mgmt-net": "",
       "mgmt-intf": "",
-      "mgmt-ipv4-address": "172.20.20.13",
+      "mgmt-ipv4-address": "172.20.20.3",
       "mgmt-ipv4-prefix-length": 24,
-      "mgmt-ipv6-address": "2001:172:20:20::5",
+      "mgmt-ipv6-address": "2001:172:20:20::3",
       "mgmt-ipv6-prefix-length": 64,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-8158ed34097f",
+        "clab-mgmt-net-bridge": "br-d418bc7820b5",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/ubuntu/ospfwatcher/containerlab/frr01/clab-frr01/router3",
@@ -146,7 +163,7 @@
       ]
     },
     "router4": {
-      "index": "4",
+      "index": "5",
       "shortname": "router4",
       "longname": "clab-frr01-router4",
       "fqdn": "router4.frr01.io",
@@ -156,13 +173,13 @@
       "image": "frrouting/frr:v8.4.1",
       "mgmt-net": "",
       "mgmt-intf": "",
-      "mgmt-ipv4-address": "172.20.20.14",
+      "mgmt-ipv4-address": "172.20.20.4",
       "mgmt-ipv4-prefix-length": 24,
-      "mgmt-ipv6-address": "2001:172:20:20::6",
+      "mgmt-ipv6-address": "2001:172:20:20::4",
       "mgmt-ipv6-prefix-length": 64,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-8158ed34097f",
+        "clab-mgmt-net-bridge": "br-d418bc7820b5",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/ubuntu/ospfwatcher/containerlab/frr01/clab-frr01/router4",
@@ -175,7 +192,7 @@
       ]
     },
     "router5": {
-      "index": "5",
+      "index": "6",
       "shortname": "router5",
       "longname": "clab-frr01-router5",
       "fqdn": "router5.frr01.io",
@@ -185,13 +202,13 @@
       "image": "frrouting/frr:v8.4.1",
       "mgmt-net": "",
       "mgmt-intf": "",
-      "mgmt-ipv4-address": "172.20.20.15",
+      "mgmt-ipv4-address": "172.20.20.5",
       "mgmt-ipv4-prefix-length": 24,
-      "mgmt-ipv6-address": "2001:172:20:20::7",
+      "mgmt-ipv6-address": "2001:172:20:20::5",
       "mgmt-ipv6-prefix-length": 64,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-8158ed34097f",
+        "clab-mgmt-net-bridge": "br-d418bc7820b5",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/ubuntu/ospfwatcher/containerlab/frr01/clab-frr01/router5",
@@ -204,7 +221,7 @@
       ]
     },
     "router6": {
-      "index": "6",
+      "index": "7",
       "shortname": "router6",
       "longname": "clab-frr01-router6",
       "fqdn": "router6.frr01.io",
@@ -214,13 +231,13 @@
       "image": "frrouting/frr:v8.4.1",
       "mgmt-net": "",
       "mgmt-intf": "",
-      "mgmt-ipv4-address": "172.20.20.16",
+      "mgmt-ipv4-address": "172.20.20.6",
       "mgmt-ipv4-prefix-length": 24,
-      "mgmt-ipv6-address": "2001:172:20:20::2",
+      "mgmt-ipv6-address": "2001:172:20:20::6",
       "mgmt-ipv6-prefix-length": 64,
       "mac-address": "",
       "labels": {
-        "clab-mgmt-net-bridge": "br-8158ed34097f",
+        "clab-mgmt-net-bridge": "br-d418bc7820b5",
         "clab-node-group": "",
         "clab-node-kind": "linux",
         "clab-node-lab-dir": "/home/ubuntu/ospfwatcher/containerlab/frr01/clab-frr01/router6",
@@ -238,27 +255,27 @@
       "a": {
         "node": "router1",
         "interface": "eth1",
-        "mac": "aa:c1:ab:9e:bf:69",
+        "mac": "aa:c1:ab:d6:1c:48",
         "peer": "z"
       },
       "z": {
         "node": "router3",
         "interface": "eth1",
-        "mac": "aa:c1:ab:87:e5:7a",
+        "mac": "aa:c1:ab:02:27:11",
         "peer": "a"
       }
     },
     {
       "a": {
-        "node": "br-8158ed34097f",
+        "node": "br-d418bc7820b5",
         "interface": "router1-5",
-        "mac": "aa:c1:ab:5d:77:4f",
+        "mac": "aa:c1:ab:8f:95:ef",
         "peer": "z"
       },
       "z": {
         "node": "router1",
         "interface": "eth5",
-        "mac": "aa:c1:ab:80:23:9c",
+        "mac": "aa:c1:ab:9c:8a:c5",
         "peer": "a"
       }
     },
@@ -266,13 +283,13 @@
       "a": {
         "node": "router2",
         "interface": "eth1",
-        "mac": "aa:c1:ab:70:70:13",
+        "mac": "aa:c1:ab:e2:da:78",
         "peer": "z"
       },
       "z": {
         "node": "router3",
         "interface": "eth2",
-        "mac": "aa:c1:ab:02:2e:c9",
+        "mac": "aa:c1:ab:36:06:89",
         "peer": "a"
       }
     },
@@ -280,13 +297,13 @@
       "a": {
         "node": "router3",
         "interface": "eth4",
-        "mac": "aa:c1:ab:de:28:0c",
+        "mac": "aa:c1:ab:4e:fb:3d",
         "peer": "z"
       },
       "z": {
         "node": "br-dr",
         "interface": "eth13",
-        "mac": "aa:c1:ab:b9:7b:49",
+        "mac": "aa:c1:ab:2b:28:2f",
         "peer": "a"
       }
     },
@@ -294,13 +311,13 @@
       "a": {
         "node": "router3",
         "interface": "eth5",
-        "mac": "aa:c1:ab:fa:6b:0d",
+        "mac": "aa:c1:ab:c5:d8:5c",
         "peer": "z"
       },
       "z": {
         "node": "router6",
         "interface": "eth1",
-        "mac": "aa:c1:ab:7f:68:88",
+        "mac": "aa:c1:ab:f3:b0:57",
         "peer": "a"
       }
     },
@@ -308,13 +325,13 @@
       "a": {
         "node": "router4",
         "interface": "eth1",
-        "mac": "aa:c1:ab:38:6e:fa",
+        "mac": "aa:c1:ab:60:b1:79",
         "peer": "z"
       },
       "z": {
         "node": "br-dr",
         "interface": "eth14",
-        "mac": "aa:c1:ab:4e:e5:be",
+        "mac": "aa:c1:ab:d8:bf:6c",
         "peer": "a"
       }
     },
@@ -322,13 +339,13 @@
       "a": {
         "node": "router5",
         "interface": "eth1",
-        "mac": "aa:c1:ab:d8:4b:0c",
+        "mac": "aa:c1:ab:bb:1d:17",
         "peer": "z"
       },
       "z": {
         "node": "br-dr",
         "interface": "eth15",
-        "mac": "aa:c1:ab:24:ec:a2",
+        "mac": "aa:c1:ab:45:7a:56",
         "peer": "a"
       }
     }

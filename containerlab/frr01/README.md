@@ -74,40 +74,39 @@ router2(config-if)# ip ospf cost 222
 2024-07-22T21:55:32Z,watcher-local,network,192.168.23.0/24,changed,old_cost:10,new_cost:222,10.10.10.2,,,internal,0
 ```
 
-### Logs sample 1  
+##### Logs sample 1  
 ```
-2024-07-22T20:20:04Z,watcher-local,host,10.10.10.4,down,10.10.10.5,12345,01Jan2023_00h00m00s_7_hosts
+2023-01-01T00:00:00Z,demo-watcher,host10.10.10.4,down,10.10.10.5,01Jan2023_00h00m00s_7_hosts
 ```
 
-* `2024-07-22T20:20:04Z` - event timestamp
-* `watcher-local` - name of watcher
+* `2023-01-01T00:00:00Z` - event timestamp
+* `demo-watcher` - name of watcher
 * `host` - event name: `host`, `network`, `metric`
 * `10.10.10.4` - event object. Watcher detected an event related to `10.10.10.4` host
 * `down` - event status: `down`, `up`, `changed`
 * `10.10.10.5` - event detected by this node.
-* `12345` AS number
 * `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-*Summary: Router with OSPF Router ID `10.10.10.5` detected that `10.10.10.4` host went down at `2024-07-22T20:20:04Z`*
+*Summary: `10.10.10.5` detected that `10.10.10.4` host went down at `2023-01-01T00:00:00Z`*
 
-### Logs sample 2  
+##### Logs sample 2  
 ```
-2024-07-22T20:24:08Z,watcher-local,network,8.8.0.60/30,changed,old_cost:-1,new_cost:12,10.10.10.5,12345,01Jan2023_00h00m00s_7_hosts,external,1
-
+2023-01-01T00:00:00Z,demo-watcher,network,192.168.13.0/24,changed,old_cost:10,new_cost:12,10.10.10.1,01Jan2023_00h00m00s_7_hosts,0.0.0.0,1234,internal,0
 ```
 
-* `2024-07-22T20:24:08Z` - event timestamp
-* `watcher-local` - name of watcher
+* `2023-01-01T00:00:00Z` - event timestamp
+* `demo-watcher` - name of watcher
 * `metric` - event name: `host`, `network`, `metric`
-* `8.8.0.60/30` - event object. Watcher detected an event related to `8.8.0.60/30` subnet
+* `192.168.13.0/24` - event object. Watcher detected an event related to `192.168.13.0/24` subnet
 * `changed` - event status: `down`, `up`, `changed`
-* `-1` - old cost -1 it means that it's new network, Watcher didn't know this network before
+* `10` - old cost
 * `12` - new cost
-* `10.10.10.5` - event detected by this node.
-* `12345` AS number
+* `10.10.10.1` - event detected by this node.
 * `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-* `external` network type: `internal`, `external`
-* `1` - External network type 1. Possible options: 1, 2, 0 (for internal/stub networks)
-*Summary: Router with OSPF Router ID `10.10.10.5` detected new Extermal Type-1 network `8.8.0.60/30` with cost `12` at `2024-07-22T20:24:08Z`*
+* `0.0.0.0` - OSPF area ID
+* `1234` - AS number where OSPF is working
+* `internal` - type of network: `internal` or `external`
+* `0` - subtype of network: type-1, type-2 or 0 for internal subnets
+*Summary: `10.10.10.1` detected that metric of `192.168.13.0/24` internal stub network changed from `10` to `12` at `2023-01-01T00:00:00Z` in area 0*
 
 
 Note:

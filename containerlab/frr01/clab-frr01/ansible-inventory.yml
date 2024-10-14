@@ -11,15 +11,17 @@ all:
           ansible_host: 
     linux:
       hosts:
+        clab-frr01-ospf-watcher:
+          ansible_host: 
         clab-frr01-router1:
-          ansible_host: 172.20.20.11
+          ansible_host: 
         clab-frr01-router2:
-          ansible_host: 172.20.20.12
+          ansible_host: 172.20.20.2
         clab-frr01-router3:
-          ansible_host: 172.20.20.13
+          ansible_host: 172.20.20.3
         clab-frr01-router4:
-          ansible_host: 172.20.20.14
+          ansible_host: 172.20.20.4
         clab-frr01-router5:
-          ansible_host: 172.20.20.15
+          ansible_host: 172.20.20.5
         clab-frr01-router6:
-          ansible_host: 172.20.20.16
+          ansible_host: 172.20.20.6

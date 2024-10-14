@@ -5,41 +5,45 @@ topology:
     # note, that the bridge br-dr must be created manually
     br-dr:
       kind: bridge
-    # ospf-watcher:
-    #   kind: linux
-    #   image: vadims06/ospf-watcher:1.0
-    #   mgmt-ipv4: 172.20.20.10
-    #   startup-delay: 10
-    #   stages:
-    #     create:
-    #       wait-for:
-    #         - node: router1
-    #           stage: create
-    #         - node: router2
-    #           stage: create
-    #         - node: router3
-    #           stage: create
-    #         - node: router4
-    #           stage: create
-    #         - node: router5
-    #           stage: create
-    #         - node: router6
-    #           stage: create
-    #   env:
-    #     WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log" # Watcher -> Export. default is local dir logs/watcher.log
-    #     OSPFD_DUMP_FILE_DIR: "/var/log/frr/ospfd.log"
-    #     TEST_MODE: "False"
-    #     FRR_HOST: "172.20.20.11"
-    #     FRR_PORT: "65001"
-    #   binds:
-    #     - router1/ospfd.log:/var/log/frr/ospfd.log # FRR -> Watcher
-    #     - watcher/watcher.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
+    ospf-watcher:
+      kind: linux
+      image: vadims06/ospf-watcher:latest
+      #network-mode: container:router1
+      network-mode: host
+      startup-delay: 30
+      stages:
+        create:
+          wait-for:
+            - node: router1
+              stage: create
+            - node: router2
+              stage: create
+            - node: router3
+              stage: create
+            - node: router4
+              stage: create
+            - node: router5
+              stage: create
+            - node: router6
+              stage: create
+      env:
+        WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log" # Watcher -> Export. default is local dir logs/watcher.log
+        TEST_MODE: "False"
+        DEBUG_BOOL: "True"
+        FRR_HOST: 127.0.0.1
+        FRR_PORT: 2604
+        FRR_PASSWORD: zebra
+        FRR_SECRET: zebra
+        ASN: '12345'
+        WATCHER_NAME: ospfwatcher-demo
+        WATCHER_INTERFACE: eth1
+      binds:
+        - watcher/watcher.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
     router1:
       kind: linux
       image: frrouting/frr:v8.4.1
-      mgmt-ipv4: 172.20.20.11
+      network-mode: host
       binds:
-        - router1/ospfd.log:/var/log/frr/ospfd.log
         - router1/daemons:/etc/frr/daemons
         - router1/frr.conf:/etc/frr/frr.conf
       # comment it if you use frr from ospf-watcher compose file
@@ -48,37 +52,30 @@ topology:
     router2:
       kind: linux
       image: frrouting/frr:v8.4.1
-      mgmt-ipv4: 172.20.20.12
       binds:
         - router2/daemons:/etc/frr/daemons
         - router2/frr.conf:/etc/frr/frr.conf
-      # ports:
-      #   - 65002:2604
     router3:
       kind: linux
       image: frrouting/frr:v8.4.1
-      mgmt-ipv4: 172.20.20.13
       binds:
         - router3/daemons:/etc/frr/daemons
         - router3/frr.conf:/etc/frr/frr.conf
     router4:
       kind: linux
       image: frrouting/frr:v8.4.1
-      mgmt-ipv4: 172.20.20.14
       binds:
         - router4/daemons:/etc/frr/daemons
         - router4/frr.conf:/etc/frr/frr.conf
     router5:
       kind: linux
       image: frrouting/frr:v8.4.1
-      mgmt-ipv4: 172.20.20.15
       binds:
         - router5/daemons:/etc/frr/daemons
         - router5/frr.conf:/etc/frr/frr.conf
     router6:
       kind: linux
       image: frrouting/frr:v8.4.1
-      mgmt-ipv4: 172.20.20.16
       binds:
         - router6/daemons:/etc/frr/daemons
         - router6/frr.conf:/etc/frr/frr.conf
@@ -92,9 +89,3 @@ topology:
     - endpoints: ["router3:eth5", "router6:eth1"]
     - endpoints: ["router4:eth1", "br-dr:eth14"]
     - endpoints: ["router5:eth1", "br-dr:eth15"]
-    # Run "sudo ip link add veth1 type veth" to connect FRR from ospf-watcher to containerlab
-    # - type: host
-    #   endpoint:
-    #     node: router3
-    #     interface: eth1
-    #   host-interface: veth1

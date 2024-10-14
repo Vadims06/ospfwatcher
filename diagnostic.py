@@ -342,7 +342,7 @@ class IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE:
 
     ASSERT_MSG = """
         Duplicated settings for the same device IP are found.
-        It's possible to create GRE tunnel for a single Watchet - Network device pair only.
+        It's possible to create GRE tunnel for a single Watcher - Network device pair only.
     """
 
     @staticmethod
@@ -358,7 +358,11 @@ class IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE:
                 continue
             dnat_ip = nat_table_row.get('target', {}).get('DNAT', {}).get('to-destination', '')
             existed_nat_records_hash.add((network_device_ip, dnat_ip))
-        if len(existed_nat_records_hash) == 1:
+        if not existed_nat_records_hash:
+            log.critical(f"""There is no NAT settings for watcher, please check iptables, run:
+            1. sudo iptables -nvL -t nat --line-numbers""")
+            return False
+        elif len(existed_nat_records_hash) == 1:
             log.info("NAT doesn't have settings for any other remote network device. Good to proceed.")
             return True
         log.critical(IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE.ASSERT_MSG +

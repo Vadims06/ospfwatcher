@@ -1,5 +1,3 @@
-version: '3.2'
-
 services:
   logstash:
     build:
@@ -48,7 +46,6 @@ services:
       timeout: 10s
       retries: 60
       start_period: 20s
-      start_interval: 5s
     depends_on:
      - logstash-index-creator
     networks:
