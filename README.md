@@ -321,8 +321,12 @@ The stdin plugin is now waiting for input:
                           "event_status" => "changed"
 }
 ```
-### Minimum Logstash version
+### Minimum version
+#### Logstash
  7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
+
+#### scapy
+2.5.0 works, 2.6.0 raises an exception
 
 ### Topolograph suite
 * OSPF Watcher [link](https://github.com/Vadims06/ospfwatcher)
