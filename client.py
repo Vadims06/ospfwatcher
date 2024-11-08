@@ -46,13 +46,15 @@ class WATCHER_CONFIG:
 
     @staticmethod
     def gen_next_free_number():
-        """ Each Watcher installation has own sequense number starting from 1 """
-        numbers = [int(folder_name.split('-')[0][-1]) for folder_name in WATCHER_CONFIG.get_existed_watchers() if '-' in folder_name]
-        expected_numbers = set(range(1, max(numbers) + 1))
-        if set(expected_numbers) == set(numbers):
-            next_number = len(numbers) + 1
+        """ Each Watcher installation has own sequence number starting from 1 """
+        watcher_seq_numbers = [int(folder_name.split('-')[0][-1]) for folder_name in WATCHER_CONFIG.get_existed_watchers() if '-' in folder_name]
+        if not watcher_seq_numbers:
+            return 1
+        expected_numbers = set(range(1, max(watcher_seq_numbers) + 1))
+        if set(expected_numbers) == set(watcher_seq_numbers):
+            next_number = len(watcher_seq_numbers) + 1
         else:
-            next_number = next(iter(expected_numbers - set(numbers)))
+            next_number = next(iter(expected_numbers - set(watcher_seq_numbers)))
         return next_number
 
     @staticmethod
