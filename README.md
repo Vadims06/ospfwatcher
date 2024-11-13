@@ -177,14 +177,44 @@ docker-compose up -d
 ```
 
  ## Kibana settings
- 1. **Index Templates**  have already been created. It's needed to check that logs are received by ELK via `Stack Management/ Kibana/ Stack Management/ Index Management`. `watcher-costs-changes` and `watcher-updown-events` should be in a list.  
-  ![](https://github.com/Vadims06/ospfwatcher/blob/57a6a82eafe10cedcbf3f3e70ddf69397401f1ca/docs/kibana_index_template.png)  
- 2. Create **Index Pattern** for old ELK `Stack Management/ Kibana/ Stack Management/ Index Pattern` -> `Create index pattern` or **Data View** in new ELK `Stack Management/ Kibana/ Stack Management/ Data Views` and specify `watcher-updown-events` as Index pattern name -> Next -> choose `watcher_time` as timestamp.  
- ![](https://github.com/Vadims06/ospfwatcher/blob/57a6a82eafe10cedcbf3f3e70ddf69397401f1ca/docs/kibana_data_view.png)  
- Repeat the step for creation `watcher-costs-changes`  
- Because the connection between Watcher (with Logstash) can be lost, but watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added 
- to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
- 
+ 1. **Index Templates** 
+ Have been already created by `logstash-index-creator` container in compose yaml file.
+ Open `Management -> Stack Management -> Index Management ->[ Index Templates ]` to make sure that the following templates are in the list:
+    * `ospf-watcher-costs-changes`
+    * `ospf-watcher-updown-events`     
+ ![](docs/kibana_index_template.png)   
+ 2. **Index Pattern**
+ Create indices with the same name as index templates
+ Go to:
+ old ELK `Stack Management/ Kibana/ Stack Management/ Index Pattern -> Create index pattern`
+ new ELK 8.x `Management -> Stack Management -> Index Management -> [ Indices ]`
+
+    then `Create index`
+    * ospf-watcher-costs-changes
+    * ospf-watcher-updown-events
+ ![](docs/kibana_indices.png)   
+ 3. **Data View**
+  Create data view for two event types.
+  Go to `Management -> Stack Management -> Data Views`
+  then `Create data view`
+    ```
+    Name: ospf-watcher-costs-changes
+    Index pattern: ospf-watcher-costs-changes
+    Timestamp field: use watcher time
+    ```
+    ![](docs/kibana_data_view.png)   
+    Repeat the same for `ospf-watcher-updown-events`
+   As a result, there are two data views should be listed
+  ![](docs/kibana_data_view_list.png) 
+> Note
+What time to use @timestamp or watcher
+
+It's better to use `watcher` time, because connection between Watcher and  Logstash can be lost, but the watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
+
+ 4. **Additional checks**
+  Make sure that:
+    * `.env` has `EXPORT_TO_ELASTICSEARCH_BOOL=True`
+    * `./logstash/pipeline/logstash.conf` has ELK uncommented
  ## Browse your topology changes logs
  Your logs are here http://localhost:5601/ -> `Analytics/Discover` `watcher-updown-events`. 
  
