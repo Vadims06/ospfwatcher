@@ -8,9 +8,10 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 * OSPF networks appeared/disappeared from the topology
 
 ## Architecture
-![](docs/ospfwatcher_plus_topolograph_architecture_v2.png)  
+![](docs/ospfwatcher_plus_topolograph_architecture_v3_xdp_rules.png)  
 Each Watcher instance maintains all routes and updates within an isolated network namespace. This isolation ensures efficient monitoring without interference and prevent route leaks.
-
+#### Listen only mode
+The FRR container is isolated in an individual network namespace and the **XDP OSPF filter** inspects all outgoing OSPF advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, OSPF Database description (DB) or LSUpdate will be dropped. It prevents the network from populating by unexpected network prefixes.  
 > **Note**  
 > ospfwatcher:v1.1 is compatible with [topolograph:v2.7](https://github.com/Vadims06/topolograph/releases/tag/v2.27), it means that OSPF network changes can be shown on the network graph.
 ### Functional Role
@@ -154,6 +155,7 @@ It will create:
 * GRE tunnel in Watcher's namespace
 * NAT settings for GRE traffic
 * FRR & Watcher instance
+* assign XDP OSPF filter on watcher's tap interface
 
 6. Setup GRE tunnel from the network device to the host. An example for Cisco
 > **Note**  
@@ -264,6 +266,30 @@ It's better to use `watcher` time, because connection between Watcher and  Logst
 * `internal` - type of network: `internal` or `external`
 * `0` - subtype of network: type-1, type-2 or 0 for internal subnets
 *Summary: `10.10.10.1` detected that metric of `192.168.13.0/24` internal stub network changed from `10` to `12` at `2023-01-01T00:00:00Z` in area 0*
+
+### Listen-only mode. XDP in action.
+If, for some reason, an extra network is advertised from Watcher, this announcement will be dropped.  
+Lab schema: there are two wireshark sessions on the interfaces before (on the left side) and after (on the right side) XDP filter. 
+![](./docs/FRR_Watcher_Wireshark.png)  
+This examples shows that `8.8.8.8` prefix was redistributed on Watcher and added into its announcement, but it was dropped by XDP and eventually didn't reach the network.
+![](./docs/lsa5_drop_highlighted.png)  
+The same logic is applied on Database Description messages
+![](./docs/lsa5_drop_db_description_highlighted.png) 
+and for extra stub networks in LSA1 Update
+![](./docs/lsa1_two_stub_networks_drop_highlighed.png) 
+To check XDP logs, run
+```
+sudo cat /sys/kernel/debug/tracing/trace_pipe
+```
+To check whether XDP filter is assigned on the interface, run
+```
+ubuntu20:~/ospfwatcher$ ip l show dev it-vhost1025
+178: it-vhost1025@if177: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdp qdisc noqueue state UP mode DEFAULT group default
+    link/ether aa:c1:ab:e3:cb:d9 brd ff:ff:ff:ff:ff:ff link-netnsid 0
+    prog/xdp id 153 <-- !!!
+```
+Demo video
+[![OSPF Deep packet inspection using XDP](./docs/logo_ospfwatcher_xdp_512_512.png)](https://www.youtube.com/watch?v=mC4PVD5hrRU)
 
 ## Troubleshooting
 ##### Symptoms

@@ -27,8 +27,8 @@ class WATCHER_CONFIG:
     WATCHER_CONFIG_FILE = "config.yml"
     ROUTER_NODE_NAME = "router"
     WATCHER_NODE_NAME = "ospf-watcher"
-    # OSPF_FILTER_NODE_NAME = "receive_only_filter"
-    # OSPF_FILTER_NODE_IMAGE = "vadims06/ospf-filter-xdp:latest"
+    OSPF_FILTER_NODE_NAME = "receive_only_filter"
+    OSPF_FILTER_NODE_IMAGE = "vadims06/ospf-filter-xdp:latest"
 
     def __init__(self, watcher_num, protocol="ospf"):
         self.watcher_num = watcher_num
@@ -300,12 +300,11 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_INTERFACE': "veth1"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_LOGFILE': "/home/watcher/watcher/logs/watcher.log"})
         # OSPF XDP filter, listen only. Not ready right now
-        # watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['image'] = self.OSPF_FILTER_NODE_IMAGE
-        # watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['network-mode'] = "host"
-        # watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
+        watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['image'] = self.OSPF_FILTER_NODE_IMAGE
+        watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['network-mode'] = "host"
+        watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
         # Enable GRE after XDP filter
-        # watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
-        # with open(os.path.join(self.watcher_folder_path, "config.yml"), "w") as f:
+        watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
         with open(self.watcher_config_file_path, "w") as f:
             s = StringIO()
             ruamel_yaml_default_mode.dump(watcher_config_yml, s)
@@ -401,7 +400,7 @@ class WATCHER_CONFIG:
             f'sudo ip netns exec {self.netns_name} ip link set mtu 1476 dev gre1', # 1476 - 24 GRE encap for OSPF MTU match
             f'sudo ip netns exec {self.netns_name} ip link set mtu 1500 dev veth1', # for xdp
             # enable GRE after applying XDP filter
-            f'sudo ip netns exec {self.netns_name} ip link set up dev gre1',
+            # f'sudo ip netns exec {self.netns_name} ip link set up dev gre1',
             f'sudo ip link set mtu 1500 dev {self.host_veth}',
             f'sudo conntrack -D --dst {self.gre_tunnel_network_device_ip} -p 47',
             f'sudo conntrack -D --src {self.gre_tunnel_network_device_ip} -p 47',

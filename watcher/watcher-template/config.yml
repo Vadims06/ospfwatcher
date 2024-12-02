@@ -18,6 +18,11 @@ topology:
       binds:
         # For crash dump logs if any
         - ../logs/:/home/watcher/watcher/logs/
+      stages:
+        create:
+          wait-for:
+            - node: h2
+              stage: create
     router:
       kind: linux
       image: quay.io/frrouting/frr:8.5.4
@@ -46,18 +51,27 @@ topology:
           wait-for:
             - node: router
               stage: create
-    # receive_only_filter:
-    #   kind: linux
-    #   image: vadims06/ospf-filter-xdp:latest
-    #   startup-delay: 2
-    #   network-mode: host
-    #   env:
-    #     VTAP_HOST_INTERFACE: vhost1025
-    #   stages:
-    #     create:
-    #       wait-for:
-    #         - node: h1
-    #           stage: create
+    receive_only_filter:
+      kind: linux
+      image: vadims06/ospf-filter-xdp:latest
+      startup-delay: 2
+      network-mode: host
+      env:
+        VTAP_HOST_INTERFACE: vhost1025
+      stages:
+        create:
+          wait-for:
+            - node: h1
+              stage: create
+    h2:
+      kind: host
+      exec:
+        - ip netns exec watcher3-gre1025-router ip link set up dev gre1
+      stages:
+        create:
+          wait-for:
+            - node: receive_only_filter
+              stage: create
 
   links:
     - endpoints: ["router:veth1", "host:vhost1025"] # type vtap
