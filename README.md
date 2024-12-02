@@ -329,7 +329,7 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
     Inside container (change):  
     ```
     mongo mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb:27017/admin?gssapiServiceName=mongodb
-    use admins
+    use admin
     ```
     Check the last two/N records in adjacency changes (`adj_change`) or cost changes (`cost_change`)
     ```
