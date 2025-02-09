@@ -452,8 +452,9 @@ class WATCHER_CONFIG:
         if diag_watcher_host.is_watcher_alive:
             diagnostic.IPTABLES_FRR_NETNS_FORWARD_TO_NETWORK_DEVICE_BEFORE_NAT.check(self.gre_tunnel_network_device_ip)
         if diag_watcher_host.is_network_device_alive:
-            diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_FORWARD_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
-            diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
+            is_passed = diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_FORWARD_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
+            if not is_passed:
+                diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
         # OSPF
         diag_watcher_host.is_ospf_available()
         diag_watcher_host.ospf_mtu_match_check()

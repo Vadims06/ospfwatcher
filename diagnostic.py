@@ -394,7 +394,7 @@ class IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS:
         * If you have such option - dump outgoing packets from network device
         sudo tcpdump -i <int> proto gre and dst <watcher_ip> -n
     """
-
+    @staticmethod
     def bash_cmd(network_device_ip):
         return f"sudo iptables -nv -t nat -L PREROUTING --line-numbers | grep {network_device_ip}"
 
@@ -413,7 +413,7 @@ class IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS:
             if pkts > 0:
                 log.info("NAT is working for remote network device.")
                 return True
-            log.critical("Remote network device doesn't send IGP packets" + IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS.ASSERT_MSG)
+            log.critical("NAT counter of packets from remote network device is Zero" + IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS.ASSERT_MSG)
             return False
 
 
@@ -435,7 +435,7 @@ class IPTABLES_REMOTE_NETWORK_DEVICE_FORWARD_TO_FRR_NETNS:
          * If you have such option - dump outgoing packets from network device
            sudo tcpdump -i <int> proto gre and dst <watcher_ip> -n
         """
-
+    @staticmethod
     def bash_cmd(network_device_ip):
         return f"sudo iptables -nv -t filter -L FORWARD --line-numbers | grep {network_device_ip}"
 
@@ -463,7 +463,7 @@ class IPTABLES_FRR_NETNS_FORWARD_TO_NETWORK_DEVICE_BEFORE_NAT:
     * IGP protocol is not enabled on Watcher's FRR
     * GRE1 is not enabled in FRR's netns. use `sudo ip netns exec watcher#-gre#-<protocol.-watcher ip l show dev gre1`
     """
-
+    @staticmethod
     def bash_cmd(network_device_ip):
         return f"sudo iptables -nv -t filter -L FORWARD --line-numbers | grep {network_device_ip}"
 
