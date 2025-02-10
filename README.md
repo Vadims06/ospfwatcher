@@ -291,6 +291,14 @@ ubuntu20:~/ospfwatcher$ ip l show dev it-vhost1025
 Demo video
 [![OSPF Deep packet inspection using XDP](./docs/logo_ospfwatcher_xdp_512_512.png)](https://www.youtube.com/watch?v=mC4PVD5hrRU)
 
+To enable/disable XDP
+```
+sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:latest python3 ./client.py --action enable_xdp --watcher_num <num>
+```
+##### Support
+Currently XDP was tested on Ubuntu 18,20 Kernel 5.4.0-204-generic.
+If you faced with XDP errors - skip it while generating config file or use `--action disable_xdp` as it mentioned in the example above.
+
 ## Troubleshooting
 ##### Symptoms
 Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is empty.
@@ -311,7 +319,7 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
 ##### Symptoms
 Dashboard page is blank. Events are not present on OSPF Monitoring page.
 ##### Steps:
-OSPF Watcher consists of three services: OSPFd/FRR [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks. Let's start each component one by one.
+OSPF Watcher consists of three services: OSPFd/FRR [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks. Let's start checking each component one by one.
 1. Check if FRR tracks OSPF changes in `./watcher/logs/watcher...log` file (previous case)   
 You should see tracked changes of your network, i.e. here we see that `10.0.0.0/29` network went up at `2023-10-27T07:50:24Z` on `10.10.1.4` router.   
     ```
@@ -331,13 +339,19 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
     mongo mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb:27017/admin?gssapiServiceName=mongodb
     use admin
     ```
-    Check the last two/N records in adjacency changes (`adj_change`) or cost changes (`cost_change`)
+    1. Check the last two/N records in adjacency changes (`adj_change`) or cost changes (`cost_change`)
     ```
     db.adj_change.find({}).sort({_id: -1}).limit(2)
     db.cost_change.find({}).sort({_id: -1}).limit(2)
     ```
+    Sample output:   
+    ```
+    { "_id" : ObjectId("67a9ecfe112225e8df6000001"), "graph_time" : "01Jan2023_00h00m00s_7_hosts", "path" : "/home/watcher/watcher/logs/watcher1-gre1-ospf.ospf.log", "area_num" : "0.0.0.1", "event_name" : "metric", 
+    ```
     > **Note**  
     > If you see a single event in `docker logs logstash` it means that mongoDB output is blocked, check if you have a connection to MongoDB `docker exec -it logstash curl -v mongodb:27017`   
+
+    2. Check that `graph_time` is **not** empty. If so, check that you can login on the Topolograph page [`Login/Local Login`] using credentials defined in `.env` and your local network is added in `API/Authorised source IP ranges`. Usually, `10.0.0.0/8`, `172.16.0.0/12` ,`192.168.0.0/16` is enought.
 
 ##### Development   
 Logstach pipeline development.

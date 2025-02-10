@@ -66,9 +66,11 @@ topology:
     h2:
       kind: host
       exec:
+        # configured from client.py
         - ip netns exec watcher3-gre1025-router ip link set up dev gre1
       stages:
         create:
+          # removed from client.py if XDP is disabled
           wait-for:
             - node: receive_only_filter
               stage: create

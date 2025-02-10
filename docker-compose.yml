@@ -52,7 +52,7 @@ services:
       - internal
   
   logstash-index-creator:
-    image: vadims06/ospf-watcher:latests
+    image: vadims06/ospf-watcher:latest
     container_name: logstash-index-creator
     volumes:
       - type: bind
