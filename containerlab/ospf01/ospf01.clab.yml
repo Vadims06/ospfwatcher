@@ -1,15 +1,14 @@
-name: frr01
+name: ospf01
 
 topology:
   nodes:
-    # note, that the bridge br-dr must be created manually
+    # note, that the bridge br-dr is created by prepare.sh
     br-dr:
       kind: bridge
     ospf-watcher:
       kind: linux
       image: vadims06/ospf-watcher:latest
-      #network-mode: container:router1
-      network-mode: host
+      network-mode: container:router1
       startup-delay: 30
       stages:
         create:
@@ -27,28 +26,23 @@ topology:
             - node: router6
               stage: create
       env:
-        WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log" # Watcher -> Export. default is local dir logs/watcher.log
-        TEST_MODE: "False"
-        DEBUG_BOOL: "True"
+        WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log"
         FRR_HOST: 127.0.0.1
         FRR_PORT: 2604
         FRR_PASSWORD: zebra
         FRR_SECRET: zebra
         ASN: '12345'
+        AREA_NUM: 0.0.0.0
         WATCHER_NAME: ospfwatcher-demo
         WATCHER_INTERFACE: eth1
       binds:
-        - watcher/watcher.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
+        - watcher/watcher.log:/home/watcher/watcher/logs/watcher.log
     router1:
       kind: linux
       image: frrouting/frr:v8.4.1
-      network-mode: host
       binds:
         - router1/daemons:/etc/frr/daemons
         - router1/frr.conf:/etc/frr/frr.conf
-      # comment it if you use frr from ospf-watcher compose file
-      ports:
-       - 65001:2604
     router2:
       kind: linux
       image: frrouting/frr:v8.4.1
