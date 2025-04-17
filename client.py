@@ -219,6 +219,8 @@ class WATCHER_CONFIG:
         area_in_ip_notation = ""
         if area_match:
             area_in_ip_notation = str(ipaddress.ip_address(int(area_match.group(0)))) if int(area_match.group(0)) != 0 else "0.0.0.0"
+        elif re.match('^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', area_num):
+            area_in_ip_notation = area_num
         return area_in_ip_notation
 
     @staticmethod
@@ -390,7 +392,7 @@ class WATCHER_CONFIG:
                 self.gre_tunnel_number = int(self.gre_tunnel_number)
         # OSPF settings
         while not self.ospf_area_num:
-            self.ospf_area_num = self.do_check_area_num(input("[5]OSPF area number: "))
+            self.ospf_area_num = self.do_check_area_num(input("[5]OSPF area number [\d+|\d+.\d+.\d+.\d+]: "))
         # Host interface name for NAT
         while not self.host_interface_device_ip:
             self.host_interface_device_ip = self.do_check_ip(input("[6]Watcher host IP address: "))
@@ -527,4 +529,8 @@ if __name__ == '__main__':
     allowed_actions = [actions.value for actions in ACTIONS]
     if args.action not in allowed_actions:
         raise ValueError(f"Not allowed action. Supported actions: {', '.join(allowed_actions)}")
-    watcher_conf = WATCHER_CONFIG.parse_command_args(args)
+    try:
+        watcher_conf = WATCHER_CONFIG.parse_command_args(args)
+    except KeyboardInterrupt:
+        print("\nInterrupted. Bye!")
+        sys.exit(1)
