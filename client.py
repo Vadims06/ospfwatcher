@@ -410,6 +410,8 @@ class WATCHER_CONFIG:
             else:
                 if enable_xdp_reply.lower().strip() == 'y':
                     self.enable_xdp = True
+                elif enable_xdp_reply.lower().strip() == 'n':
+                    self.enable_xdp = False
     
     def exec_cmds(self):
         return [
