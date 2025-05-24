@@ -16,13 +16,10 @@ services:
         read_only: true
       - type: bind
         source: ./watcher/logs
+        # for containerlab integration
+        # source: /home/ubuntu/ospfwatcher/containerlab/ospf01/watcher
         target: /home/watcher/watcher/logs
         read_only: true
-      # for containerlab integration
-      # - type: bind
-      #   source: /home/ubuntu/ospfwatcher_avgur/watcher/logs/
-      #   target: /home/watcher/watcher/logs/
-      #   read_only: true
     environment:
       ELASTIC_USER_LOGIN: $ELASTIC_USER_LOGIN
       ELASTIC_USER_PASS: $ELASTIC_USER_PASS
@@ -40,6 +37,9 @@ services:
       EXPORT_TO_ZABBIX_BOOL: $EXPORT_TO_ZABBIX_BOOL
       EXPORT_TO_WEBHOOK_URL_BOOL: $EXPORT_TO_WEBHOOK_URL_BOOL
       WEBHOOK_URL: $WEBHOOK_URL
+      EXPORT_TO_TOPOLOGRAPH_SOCKET: $EXPORT_TO_TOPOLOGRAPH_SOCKET
+      TOPOLOGRAPH_HOST: $TOPOLOGRAPH_HOST
+      TOPOLOGRAPH_PORT: $TOPOLOGRAPH_PORT
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9600"]
       interval: 5s
@@ -49,7 +49,7 @@ services:
     depends_on:
      - logstash-index-creator
     networks:
-      - internal
+      - topolograph_backend
   
   logstash-index-creator:
     image: vadims06/ospf-watcher:latest
@@ -66,9 +66,9 @@ services:
       ELASTIC_PORT: $ELASTIC_PORT
     entrypoint: ["python", "create.py"]
     networks:
-      - internal
+      - topolograph_backend
 
 networks:
-  internal:
-    external:
-      name: topolograph_backend
+  topolograph_backend:
+    external: true
+    name: topolograph_backend
