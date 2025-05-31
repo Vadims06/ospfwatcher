@@ -243,7 +243,10 @@ class WATCHER_CONFIG:
         # using TOPOLOGRAPH_* env variable check if get request is ok
         _login, _pass = os.getenv('TOPOLOGRAPH_WEB_API_USERNAME_EMAIL', ''), os.getenv('TOPOLOGRAPH_WEB_API_PASSWORD', '')
         _host, _port = os.getenv('TOPOLOGRAPH_HOST', ''), os.getenv('TOPOLOGRAPH_PORT', '')
-        r_get = requests.get(f'http://{_host}:{_port}/api/graph/', auth=(_login, _pass), timeout=(5, 30))
+        try:
+            r_get = requests.get(f'http://{_host}:{_port}/api/graph/', auth=(_login, _pass), timeout=(5, 30))
+        except requests.exceptions.ConnectionError:
+            raise(f"couldn't connect to {_host}:{_port}. Please check that Topolograph is accessible and {_login} user is created")
         status_name = 'ok' if r_get.ok else 'bad'
         print(f"Access to {_host}:{_port} is {status_name}")
         if r_get.status_code != 200:
@@ -278,11 +281,9 @@ class WATCHER_CONFIG:
         watcher_logs_folder_path = os.path.join(self.watcher_root_folder_path, "logs")
         if not os.path.exists(watcher_logs_folder_path):
             os.mkdir(watcher_logs_folder_path)
-        #os.mkdir(ospf_watcher_folder_path)
-        shutil.copyfile(
-            src=os.path.join(self.ospf_watcher_template_path, "watcher.log"),
-            dst=os.path.join(watcher_logs_folder_path, self.watcher_log_file_name),
-        )
+        # create file
+        with open(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 'w') as fp:
+            pass
         os.chmod(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 0o755)
         # router folder inside watcher
         os.mkdir(self.router_folder_path)
