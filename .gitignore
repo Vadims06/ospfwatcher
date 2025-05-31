@@ -2,8 +2,10 @@ tests/__pycache__/
 venv
 __pycache__/
 .*ospf.log
+.*.yml.bak
 watcher/logs/.*json
 watcher/logs/.*igp.txt
 watcher/*
 !watcher/watcher-template/
 clab-watcher*
+containerlab/ospf01/watcher

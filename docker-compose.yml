@@ -17,7 +17,7 @@ services:
       - type: bind
         source: ./watcher/logs
         # for containerlab integration
-        # source: /home/ubuntu/ospfwatcher/containerlab/ospf01/watcher
+        # source: /home/ubuntu/ospfwatcher/containerlab/ospf01/watcher/logs
         target: /home/watcher/watcher/logs
         read_only: true
     environment:

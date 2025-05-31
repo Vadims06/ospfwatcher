@@ -17,7 +17,7 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 2. Run the script to prepare environment:
 
     ```
-    ./prepare.sh
+    sudo ./prepare.sh
     ```
 
 3. Start the lab

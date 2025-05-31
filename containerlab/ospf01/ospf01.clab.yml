@@ -1,6 +1,9 @@
 name: ospf01
 
 topology:
+  defaults:
+    env-files:
+    - ../../.env
   nodes:
     # note, that the bridge br-dr is created by prepare.sh
     br-dr:
@@ -9,7 +12,7 @@ topology:
       kind: linux
       image: vadims06/ospf-watcher:latest
       network-mode: container:router1
-      startup-delay: 30
+      startup-delay: 50 # 30 sec gives only 3 routers
       stages:
         create:
           wait-for:
@@ -36,7 +39,7 @@ topology:
         WATCHER_NAME: ospfwatcher-demo
         WATCHER_INTERFACE: eth1
       binds:
-        - watcher/watcher.log:/home/watcher/watcher/logs/watcher.log
+        - watcher/logs/watcher1.ospf.log:/home/watcher/watcher/logs/watcher.log
     router1:
       kind: linux
       image: frrouting/frr:v8.4.1
