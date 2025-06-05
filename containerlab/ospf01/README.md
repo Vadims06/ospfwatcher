@@ -91,7 +91,7 @@ sudo tail -f watcher/watcher.log
 
 ##### Logs sample 1  
 ```
-2023-01-01T00:00:00Z,demo-watcher,host10.10.10.4,down,10.10.10.5,01Jan2023_00h00m00s_7_hosts,0,1234
+2023-01-01T00:00:00Z,demo-watcher,host10.10.10.4,down,10.10.10.5,01Jan2023_00h00m00s_7_hosts,0,1234,192.168.145.5
 ```
 
 * `2023-01-01T00:00:00Z` - event timestamp
@@ -103,7 +103,8 @@ sudo tail -f watcher/watcher.log
 * `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
 * `0.0.0.0` - OSPF area ID
 * `1234` - AS number where OSPF is working
-*Summary: `10.10.10.5` detected that `10.10.10.4` host in area 0 in AS 1234 went down at `2023-01-01T00:00:00Z`*
+* `192.168.145.5` - IP address on detected node
+*Summary: `10.10.10.5` detected that `10.10.10.4` host on the interface with `192.168.145.5` IP address in area 0 in AS 1234 went down at `2023-01-01T00:00:00Z`*
 
 ##### Logs sample 2  
 ```

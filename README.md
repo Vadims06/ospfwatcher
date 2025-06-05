@@ -266,7 +266,7 @@ docker-compose up -d
 
 ##### Logs sample 1  
 ```
-2023-01-01T00:00:00Z,demo-watcher,host10.10.10.4,down,10.10.10.5,01Jan2023_00h00m00s_7_hosts
+2023-01-01T00:00:00Z,demo-watcher,host10.10.10.4,down,10.10.10.5,01Jan2023_00h00m00s_7_hosts,0,1234,192.168.145.5
 ```
 
 * `2023-01-01T00:00:00Z` - event timestamp
@@ -276,7 +276,10 @@ docker-compose up -d
 * `down` - event status: `down`, `up`, `changed`
 * `10.10.10.5` - event detected by this node.
 * `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-*Summary: `10.10.10.5` detected that `10.10.10.4` host went down at `2023-01-01T00:00:00Z`*
+* `0.0.0.0` - OSPF area ID
+* `1234` - AS number where OSPF is working
+* `192.168.145.5` - IP address on detected node
+*Summary: `10.10.10.5` detected that `10.10.10.4` host on the interface with `192.168.145.5` IP address in area 0 in AS 1234 went down at `2023-01-01T00:00:00Z`*
 
 ##### Logs sample 2  
 ```
@@ -370,10 +373,10 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
     mongo mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb:27017/admin?gssapiServiceName=mongodb
     use admin
     ```
-    1. Check the last two/N records in adjacency changes (`adj_change`) or cost changes (`cost_change`)
+    1. Check the last two/N records in adjacency changes (`ospf_neighbor_up_down`) or cost changes (`ospf_link_cost_change`)
     ```
-    db.adj_change.find({}).sort({_id: -1}).limit(2)
-    db.cost_change.find({}).sort({_id: -1}).limit(2)
+    db.ospf_neighbor_up_down.find({}).sort({_id: -1}).limit(2)
+    db.ospf_link_cost_change.find({}).sort({_id: -1}).limit(2)
     ```
     Sample output:   
     ```
