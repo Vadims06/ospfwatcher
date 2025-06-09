@@ -25,8 +25,9 @@ The FRR container is isolated in an individual network namespace and the **XDP O
 ![](docs/functional-watcher-role.png)
 
 ## Demo
+Instant notifications   
+[![OSPF Watcher instance notification](./docs/ospfwarcher_socket_demo.png)](https://youtu.be/2IHbxmDVMA0)  
 Click on the image in order zoom it.  
-![](docs/ospfwatcher_socket_demo_720.mp4)   
 ![](https://github.com/Vadims06/ospfwatcher/blob/ada2ca86df171ec5f1b550da821f0a8ca1cb1df4/docs/ospf-watcher-demo.gif)
 
 ## Discovering OSPF logs in Kibana. Examples
