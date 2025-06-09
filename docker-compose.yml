@@ -1,5 +1,5 @@
 services:
-  logstash:
+  ospf-logstash:
     build:
       context: logstash/
       args:
