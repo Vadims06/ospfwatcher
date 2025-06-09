@@ -26,6 +26,7 @@ The FRR container is isolated in an individual network namespace and the **XDP O
 
 ## Demo
 Click on the image in order zoom it.  
+![](docs/ospfwatcher_socket_demo_720.mp4)   
 ![](https://github.com/Vadims06/ospfwatcher/blob/ada2ca86df171ec5f1b550da821f0a8ca1cb1df4/docs/ospf-watcher-demo.gif)
 
 ## Discovering OSPF logs in Kibana. Examples
@@ -87,8 +88,16 @@ Table below shows different options of possible setups, starting from the bare m
 
 #### Setup №2. Text logs + timeline of network changes on Topolograph 
 1. Choose a Linux host with Docker installed
-2. Setup Topolograph
-It's needed for network events visualization on Topolograph UI. Skip if you don't want it. 
+2. Run script:  
+```bash
+curl -O https://raw.githubusercontent.com/Vadims06/topolograph-docker/master/install.sh
+chmod +x install.sh
+sudo ./install.sh
+```   
+It will:  
+
+  1. Setup Topolograph
+  It's needed for network events visualization on Topolograph UI. Skip if you don't want it. 
 * launch your own Topolograph on docker using [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or make sure you have a connection to the public https://topolograph.com
 * create a user for API authentication using `Local Registration` form on the Topolograph page, add your IP address in `API/Authorised source IP ranges`.
 Set variables in `.env` file:    
@@ -105,26 +114,7 @@ Set variables in `.env` file:
 > * `TEST_MODE` - if mode is `True`, a demo OSPF events from static file will be
 >   uploaded, not from FRR
 
-3. Setup ELK (skip it, it's only needed for setup № 3)  
-* if you already have ELK instance running, fill `ELASTIC_IP` in env file and uncomment Elastic config here `ospfwatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for Index Templates creation, because `create.py` script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `ospfwatcher/logstash/index_template/create.py`.
-To create Index Templates, run:
-```
-sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.py:/home/watcher/watcher/create.py vadims06/ospf-watcher:latest python3 ./create.py
-```   
-* if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in docker-elk/elasticsearch/config/elasticsearch.yml  
-```
-xpack.license.self_generated.type: basic
-xpack.security.enabled: false
-```  
-
-> [!TIP]
-> When the Elastic output plugin fails to connect to the ELK host, it blocks all
-> other outputs and ignores `EXPORT_TO_ELASTICSEARCH_BOOL` value from env file.
-> Regardless of `EXPORT_TO_ELASTICSEARCH_BOOL` being `False`, it tries to
-> connect to Elastic host. The solution - uncomment this portion of config in
-> case of having running ELK.
-
-4. Setup OSPF Watcher
+2. Setup OSPF Watcher
 ```bash
 git clone https://github.com/Vadims06/ospfwatcher.git
 cd ospfwatcher
@@ -178,7 +168,14 @@ It will create:
 * FRR & Watcher instance
 * assign XDP OSPF filter on watcher's tap interface
 
-6. Setup GRE tunnel from the network device to the host. An example for Cisco
+6. Start log export to Topolograph and/or ELK (optionally if you configured Step 2 or 3)  
+```
+docker-compose build
+docker-compose up -d
+```  
+
+### Device configuration
+Setup GRE tunnel from the network device to the host. An example for Cisco
 
 > [!NOTE]
 > You can skip this step and run ospfwatcher in `test_mode`, so test LSDB from
@@ -197,11 +194,25 @@ Set GRE tunnel network where <GRE tunnel ip address> is placed to `quagga/config
 
 Check OSPF neighbor, if there is no OSPF adjacency between network device and OSPF Watcher, check troubleshooting `OSPF Watcher <-> Network device connection` section below (to run diagnostic script).
 
-7. Start log export to Topolograph and/or ELK (optionally if you configured Step 2 or 3)  
+#### *Optionally*
+Setup ELK (skip it, it's only needed for setup № 3)  
+* if you already have ELK instance running, fill `ELASTIC_IP` in env file and uncomment Elastic config here `ospfwatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for Index Templates creation, because `create.py` script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `ospfwatcher/logstash/index_template/create.py`.
+To create Index Templates, run:
 ```
-docker-compose build
-docker-compose up -d
+sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.py:/home/watcher/watcher/create.py vadims06/ospf-watcher:latest python3 ./create.py
+```   
+* if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in docker-elk/elasticsearch/config/elasticsearch.yml  
 ```
+xpack.license.self_generated.type: basic
+xpack.security.enabled: false
+```  
+
+> [!TIP]
+> When the Elastic output plugin fails to connect to the ELK host, it blocks all
+> other outputs and ignores `EXPORT_TO_ELASTICSEARCH_BOOL` value from env file.
+> Regardless of `EXPORT_TO_ELASTICSEARCH_BOOL` being `False`, it tries to
+> connect to Elastic host. The solution - uncomment this portion of config in
+> case of having running ELK.
 
  ## Kibana settings
  1. **Index Templates** 
