@@ -51,7 +51,7 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 
 5. Start watching logs
     ```
-    sudo tail -f watcher/watcher.log
+    sudo tail -f watcher/logs/watcher1.ospf.log
     ```
 
 6. Change OSPF settings on lab' routers. Connect to a router

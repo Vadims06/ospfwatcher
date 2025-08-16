@@ -119,6 +119,7 @@ Set variables in `.env` file:
 ```bash
 git clone https://github.com/Vadims06/ospfwatcher.git
 cd ospfwatcher
+cp .env.template .env
 ```
 Generate configuration files  
 `vadims06/ospf-watcher:v1.7` includes a client for generating configurations for each Watcher for each OSPF area. To generate individual settings - run the client with `--action add_watcher`   

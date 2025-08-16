@@ -2,7 +2,9 @@
 
 set -euo pipefail
 
-LOG_DIR="watcher/logs"
+# Base folder where the lab lives
+LAB_DIR="$(dirname "$0")"
+LOG_DIR="$LAB_DIR/watcher/logs"
 LOG_FILE="$LOG_DIR/watcher1.ospf.log"
 BRIDGE_NAME="br-dr"
 OWNER="systemd-network:systemd-journal"
