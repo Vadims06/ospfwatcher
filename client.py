@@ -234,6 +234,9 @@ class WATCHER_CONFIG:
                 if line.startswith('TOPOLOGRAPH_HOST'):
                     f.write(f'TOPOLOGRAPH_HOST={self.host_interface_device_ip}\n')
                     print(f"TOPOLOGRAPH_HOST set to {self.host_interface_device_ip} in .env\n")
+                elif line.startswith('WEBHOOK_URL'):
+                    f.write(f'WEBHOOK_URL={self.host_interface_device_ip}\n')
+                    print(f"WEBHOOK_URL set to {self.host_interface_device_ip} in .env\n")
                 else:
                     f.write(line)
 
