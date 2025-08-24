@@ -218,7 +218,7 @@ xpack.security.enabled: false
 
  ## Kibana settings
  1. **Index Templates** 
- Have been already created by `logstash-index-creator` container in compose yaml file.
+ Have been already created by `ospf-logstash-index-creator` container in compose yaml file.
  Open `Management -> Stack Management -> Index Management ->[ Index Templates ]` to make sure that the following templates are in the list:
     * `ospf-watcher-costs-changes`
     * `ospf-watcher-updown-events`     
