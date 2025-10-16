@@ -46,6 +46,7 @@ services:
       timeout: 10s
       retries: 60
       start_period: 20s
+    restart: unless-stopped
     depends_on:
      - ospf-logstash-index-creator
     networks:
