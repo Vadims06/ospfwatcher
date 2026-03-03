@@ -10,6 +10,7 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 * OSPF neighbor adjacency Up/Down
 * OSPF link cost changes
 * OSPF networks appearance/disappearance from the topology
+* OSPF TE attributes (RFC 3630): Administrative Group, Maximum Link Bandwidth, Maximum Reservable Link Bandwidth, Unreserved Bandwidth, Traffic Engineering Default Metric
 
 ## Quickstart
 
@@ -82,6 +83,25 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
     router6(config-if)# shutdown
     ```
 
+    Change TE attributes.   
+    ```
+    router6(config)# int eth1
+    router6(config-if)# link-params
+    router6(config-link-params)# metric 100
+    router6(config-link-params)# admin-grp 0xaa
+    router6(config-link-params)# unrsv-bw 0 1e+07
+    router6(config-link-params)# max-bw 2e+08
+    ```
+
+Whatcher's  output
+```
+2023-01-01T00:49:40.067Z,ospfwatcher-demo,temetric,192.168.36.6,changed,0_17_19_20_21_22_26_29_30,1410065408,1410065408,9840000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
+2023-01-01T00:50:02.707Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1410065408,1410065408,9840000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
+2023-01-01T00:50:08.308Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1410065408,1410065408,80000000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
+2026-03-03T00:51:48.232Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1600000000,1410065408,80000000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
+```
+
+
 ### OSPF Watcher logs location
 Available under `watcher` folder. To see them:
 ```
@@ -126,6 +146,20 @@ sudo tail -f watcher/watcher.log
 * `0` - subtype of network: type-1, type-2 or 0 for internal subnets
 *Summary: `10.10.10.1` detected that metric of `192.168.13.0/24` internal stub network changed from `10` to `12` at `2023-01-01T00:00:00Z` in area 0*
 
+##### Logs sample 3 (TE)
+```
+2024-12-29T13:20:50.398Z,ospfwatcher-demo,temetric,10.10.10.6,changed,0_17_19_20_21_22_26_29_30,1000000000,1000000000,1000000008_1000000016_1000000024_1000000032_1000000040_1000000048_1000000056,11223344,10.10.10.3,2024-07-28T18:03:05Z,0.0.0.0,12345,192.168.36.3,192.168.36.6
+```
+* `temetric` - event name for TE attribute change
+* `10.10.10.6` - event object (neighbor/link ID)
+* `0_17_19_20_21_22_26_29_30` - admin group bit indices
+* `1000000000` - Maximum Link Bandwidth (bits/sec)
+* `1000000000` - Maximum Reservable Link Bandwidth (bits/sec)
+* `1000000008_...` - Unreserved Bandwidth for priority 0..7 (bits/sec)
+* `11223344` - Traffic Engineering Default Metric
+* `10.10.10.3` - event detected by (advertising router)
+* `192.168.36.3`, `192.168.36.6` - local and remote interface IP addresses
+```
 
 Note:
 log file should have `systemd-network:systemd-journal` ownership

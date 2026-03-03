@@ -35,6 +35,13 @@ ensure_brctl_installed() {
     fi
 }
 
+ensure_mpls_modules() {
+    echo "[$(date)] Loading MPLS kernel modules (required for OSPF TE / opaque-area LSAs)"
+    sudo modprobe mpls_router
+    sudo modprobe mpls_iptunnel
+    sudo modprobe mpls_gso
+}
+
 setup_bridge() {
     if ! ip link show "$BRIDGE_NAME" &>/dev/null; then
         echo "[$(date)] Creating bridge: $BRIDGE_NAME"
@@ -48,6 +55,7 @@ setup_bridge() {
 main() {
     create_log_file
     ensure_brctl_installed
+    ensure_mpls_modules
     setup_bridge
 }
 
