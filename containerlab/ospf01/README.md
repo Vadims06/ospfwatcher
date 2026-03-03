@@ -13,6 +13,8 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 * OSPF TE attributes (RFC 3630): Administrative Group, Maximum Link Bandwidth, Maximum Reservable Link Bandwidth, Unreserved Bandwidth, Traffic Engineering Default Metric
 
 ## Quickstart
+> [!NOTE]
+> To connect to routers use telnet 127.0.0.1 6500N where N is a router number, or use sudo docker exec -it clab-ospf01-router6 vtysh
 
 1. [Install](https://containerlab.srlinux.dev/install/) containerlab.
 2. Run the script to prepare environment:
@@ -59,31 +61,31 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
     ```
     sudo docker exec -it clab-ospf01-router6 vtysh
     ```
-    Change metric on the interface
+    6.1    Change metric on the interface
     ```
     router6# conf t
     router6(config)# int eth1
     router6(config-if)# ip ospf cost 66
     ```
 
-    Add new stub network
+    6.2    Add new stub network
     ```
     router6(config-if)# ip address 10.10.36.6/24
     ```
 
-    Remove external type-2 subnet
+    6.3 Remove external type-2 subnet
     ```
     router6(config-if)# exit
     router6(config)# no ip route 6.6.6.6/32 192.168.36.3
     ```
 
-    Shutdown adjancency
+    6.4 Shutdown adjancency
     ```
     router6(config)# int eth1
     router6(config-if)# shutdown
     ```
 
-    Change TE attributes.   
+    6.5 Change TE attributes.   
     ```
     router6(config)# int eth1
     router6(config-if)# link-params
@@ -92,14 +94,6 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
     router6(config-link-params)# unrsv-bw 0 1e+07
     router6(config-link-params)# max-bw 2e+08
     ```
-
-Whatcher's  output
-```
-2023-01-01T00:49:40.067Z,ospfwatcher-demo,temetric,192.168.36.6,changed,0_17_19_20_21_22_26_29_30,1410065408,1410065408,9840000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
-2023-01-01T00:50:02.707Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1410065408,1410065408,9840000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
-2023-01-01T00:50:08.308Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1410065408,1410065408,80000000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
-2026-03-03T00:51:48.232Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1600000000,1410065408,80000000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
-```
 
 
 ### OSPF Watcher logs location
@@ -159,6 +153,16 @@ sudo tail -f watcher/watcher.log
 * `11223344` - Traffic Engineering Default Metric
 * `10.10.10.3` - event detected by (advertising router)
 * `192.168.36.3`, `192.168.36.6` - local and remote interface IP addresses
+```
+
+## Watcher's tests output
+
+6.5 Change TE attributes. Watcher output
+```
+2023-01-01T00:49:40.067Z,ospfwatcher-demo,temetric,192.168.36.6,changed,0_17_19_20_21_22_26_29_30,1410065408,1410065408,9840000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
+2023-01-01T00:50:02.707Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1410065408,1410065408,9840000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
+2023-01-01T00:50:08.308Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1410065408,1410065408,80000000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
+2026-03-03T00:51:48.232Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1600000000,1410065408,80000000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
 ```
 
 Note:

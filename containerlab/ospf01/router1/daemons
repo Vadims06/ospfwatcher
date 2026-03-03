@@ -18,7 +18,7 @@ bfdd=no
 fabricd=no
 
 vtysh_enable=yes
-zebra_options=" -s 90000000 --daemon -A 127.0.0.1"
+zebra_options=" -s 90000000 --daemon -A 0.0.0.0"
 bgpd_options="   --daemon -A 127.0.0.1"
 ospfd_options="  --daemon -A 0.0.0.0"
 ospf6d_options=" --daemon -A ::1"

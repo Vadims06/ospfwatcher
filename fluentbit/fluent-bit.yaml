@@ -1,0 +1,63 @@
+# Fluent Bit pipeline: tail watcher OSPF logs -> grep -> lua parse -> modify -> http/stdout
+# Replaces fluent-bit.conf (classic format). Lua script kept for CSV parsing logic.
+
+service:
+  flush: 1
+  log_level: info
+  daemon: off
+  parsers_file: parsers.conf
+  http_server: on
+  http_listen: 0.0.0.0
+  http_port: 2020
+
+pipeline:
+  inputs:
+    - name: tail
+      tag: watcher_logs
+      path: /home/watcher/watcher/logs/watcher*.ospf.log
+      read_from_head: false
+      refresh_interval: 1
+      rotate_wait: 1
+      mem_buf_limit: 50MB
+      skip_long_lines: on
+
+  filters:
+    - name: grep
+      match: watcher_logs
+      regex: log changed
+
+    - name: lua
+      match: watcher_logs
+      script: /fluent-bit/etc/parse_events.lua
+      call: parse_events
+
+    - name: modify
+      match: watcher_logs
+      add:
+        - protocol ospf
+        - metadata.exporter fluentbit
+
+  outputs:
+    - name: http
+      match: watcher_logs
+      host: ${TOPOLOGRAPH_HOST}
+      port: ${TOPOLOGRAPH_PORT}
+      uri: /websocket
+      format: json
+      json_date_key: "@timestamp"
+      retry_limit: 3
+      tls: off
+
+    - name: http
+      match: watcher_logs
+      host: ${WEBHOOK_HOST}
+      port: ${WEBHOOK_PORT}
+      uri: /
+      format: json
+      json_date_key: "@timestamp"
+      retry_limit: 3
+      tls: off
+
+    - name: stdout
+      match: watcher_logs
+      format: json

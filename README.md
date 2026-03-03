@@ -81,11 +81,12 @@ sudo clab deploy --topo ./containerlab/frr01/frr01.clab.yml
 
 ## How to connect OSPF watcher to real network  
 Table below shows different options of possible setups, starting from the bare minimum in case of running Containerlab for testing and ending with maximum setup size with Watcher, Topolograph and ELK. The following setup describes setup **№2**. 
-| № | Deployment size                                                                            | Number of compose files | Text file logs | View changes on network map | Zabbix/HTTP/Messengers notification | Searching events by any field any time |
-|---|--------------------------------------------------------------------------------------------|-------------------------|----------------|-----------------------------|-------------------------------------|----------------------------------------|
-| 1 | Bare minimum. Containerlab                                                                 |            0            |        +       |              -              |                  -                  |                    -                   |
-| 2 | 1. Local Topolograph  <br>2. local compose file with ELK **disabled** (commented) |            2            |        +       |              +              |                  +                  |                    -                   |
-| 3 | 1. Local Topolograph  <br>2. local compose file with ELK **enabled**              |            3            |        +       |              +              |                  +                  |                    +                   |
+| № | Deployment size | Compose files | Text logs | View on map | Zabbix / HTTP / Messengers | Search events |
+|---|----------------|---------------|-----------|-------------|---------------------------|---------------|
+| 1 | Bare minimum (Containerlab) | 0 | + | − | − | − |
+| 2 | Local Topolograph + local compose (ELK **disabled**) | 2 | + | + | + | − |
+| 3 | Local Topolograph + local compose (ELK **enabled**) | 3 | + | + | + | + |
+| 4 | Same as №2 but **Fluent Bit** instead of Logstash (Zabbix not available) | 2 | + | + | HTTP/Webhook only | − |
 
 #### Setup №2. Text logs + timeline of network changes on Topolograph 
 1. Choose a Linux host with Docker installed
@@ -175,6 +176,13 @@ It will create:
 docker-compose build
 docker-compose up -d
 ```  
+
+**Compose profiles (Logstash vs Fluent Bit):**  
+- **Default (no profile):** starts Logstash and the index-creator. Use `docker compose up -d` (or `docker compose up -d ospf-logstash ospf-logstash-index-creator`).
+- **Fluent Bit only:** the `fluent-bit` service has profile `fluent-bit`. To start **only** Fluent Bit (no Logstash, no index-creator), run:
+  ```bash
+  docker compose --profile fluent-bit up -d fluent-bit
+  ```
 
 ### Device configuration
 Setup GRE tunnel from the network device to the host. An example for Cisco

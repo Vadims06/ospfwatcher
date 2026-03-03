@@ -15,9 +15,9 @@ services:
         target: /usr/share/logstash/pipeline
         read_only: true
       - type: bind
-        source: ./watcher/logs
+        # source: ./watcher/logs
         # for containerlab integration
-        # source: /home/ubuntu/ospfwatcher/containerlab/ospf01/watcher/logs
+        source: /home/ubuntu/ospfwatcher/containerlab/ospf01/watcher/logs
         target: /home/watcher/watcher/logs
         read_only: true
     environment:
@@ -65,6 +65,31 @@ services:
       ELASTIC_IP: $ELASTIC_IP
       ELASTIC_PORT: $ELASTIC_PORT
     entrypoint: ["python", "create.py"]
+    networks:
+      - topolograph_backend
+
+  fluent-bit:
+    image: fluent/fluent-bit:3.2
+    container_name: ospf-fluent-bit
+    command: ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.yaml"]
+    profiles:
+      - fluent-bit
+    volumes:
+      - type: bind
+        source: ./fluentbit
+        target: /fluent-bit/etc
+        read_only: true
+      - type: bind
+        source: /home/ubuntu/ospfwatcher/containerlab/ospf01/watcher/logs
+        target: /home/watcher/watcher/logs
+        read_only: true
+    environment:
+      TOPOLOGRAPH_HOST: ${TOPOLOGRAPH_HOST:-localhost}
+      TOPOLOGRAPH_PORT: ${TOPOLOGRAPH_PORT:-8080}
+      WEBHOOK_HOST: ${WEBHOOK_HOST:-localhost}
+      WEBHOOK_PORT: ${WEBHOOK_PORT:-9090}
+      WEBHOOK_URI: ${WEBHOOK_URI:-/}
+      WEBHOOK_TLS_ON: ${WEBHOOK_TLS_ON:-off}
     networks:
       - topolograph_backend
 
