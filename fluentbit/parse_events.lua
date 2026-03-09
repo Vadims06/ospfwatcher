@@ -195,11 +195,9 @@ function parse_events(tag, timestamp, record)
                 ["remote_ip_address"]= string.sub(record["remote_ip_address"] or "", 1, 64)
             }
         end
-        local new_record = {
-            ["user"] = string.sub(record["watcher_name"] or "ospf-watcher", 1, 1024),
-            ["events"] = { ev }
-        }
-        return 1, timestamp, new_record
+        -- Emit single event object so /websocket expects event_name at top level (no "events" wrapper)
+        ev["user"] = string.sub(record["watcher_name"] or "ospf-watcher", 1, 1024)
+        return 1, timestamp, ev
     end
 
     return -1, 0, 0
