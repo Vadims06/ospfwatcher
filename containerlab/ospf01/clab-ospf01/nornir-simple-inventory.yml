@@ -1,0 +1,41 @@
+---
+br-dr:
+    username: 
+    password: 
+    platform: bridge
+    hostname: 
+ospf-watcher:
+    username: 
+    password: 
+    platform: linux
+    hostname: 
+router1:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.7
+router2:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.3
+router3:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.5
+router4:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.2
+router5:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.4
+router6:
+    username: 
+    password: 
+    platform: linux
+    hostname: 172.20.20.6

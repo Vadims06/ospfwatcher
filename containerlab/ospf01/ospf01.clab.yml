@@ -10,7 +10,7 @@ topology:
       kind: bridge
     ospf-watcher:
       kind: linux
-      image: vadims06/ospf-watcher:v3.0.2_dev
+      image: vadims06/ospf-watcher:v3.0.2
       network-mode: container:router1
       startup-delay: 50 # 30 sec gives only 3 routers
       stages:
@@ -30,7 +30,6 @@ topology:
               stage: create
       env:
         WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log"
-        DEBUG_BOOL: "True"
         FRR_HOST: 127.0.0.1
         FRR_PORT: 2604
         FRR_PASSWORD: zebra

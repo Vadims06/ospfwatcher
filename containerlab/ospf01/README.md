@@ -70,22 +70,10 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 
     6.2    Add new stub network
     ```
-    router6(config-if)# ip address 10.10.36.6/24
+    router6(config-if)# ip address 10.10.136.6/24
     ```
 
-    6.3 Remove external type-2 subnet
-    ```
-    router6(config-if)# exit
-    router6(config)# no ip route 6.6.6.6/32 192.168.36.3
-    ```
-
-    6.4 Shutdown adjancency
-    ```
-    router6(config)# int eth1
-    router6(config-if)# shutdown
-    ```
-
-    6.5 Change TE attributes.   
+    6.3 Change TE attributes.   
     ```
     router6(config)# int eth1
     router6(config-if)# link-params
@@ -95,6 +83,23 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
     router6(config-link-params)# max-bw 2e+08
     ```
 
+    6.4 Remove external type-2 subnet
+    ```
+    router6(config-if)# exit
+    router6(config)# no ip route 6.6.6.6/32 192.168.36.3
+    ```
+
+    6.5 Shutdown adjancency
+    ```
+    router6(config)# int eth1
+    router6(config-if)# shutdown
+    ```
+
+    6.6 Unshutdown adjancency
+    ```
+    router6(config)# int eth1
+    router6(config-if)# no shutdown
+    ```
 
 ### OSPF Watcher logs location
 Available under `watcher` folder. To see them:
@@ -105,7 +110,7 @@ sudo tail -f watcher/watcher.log
 
 ##### Logs sample 1  
 ```
-2023-01-01T00:00:00Z,demo-watcher,host10.10.10.4,down,10.10.10.5,01Jan2023_00h00m00s_7_hosts,0,1234,192.168.145.5
+2023-01-01T00:00:00Z,demo-watcher,host10.10.10.4,down,10.10.10.5,01Jan2023_00h00m00s_7_hosts,0,1234,192.168.145.5,,981e52b4-175b-11f1-b65c-c25d5799b044,10.10.10.1
 ```
 
 * `2023-01-01T00:00:00Z` - event timestamp
@@ -118,11 +123,14 @@ sudo tail -f watcher/watcher.log
 * `0.0.0.0` - OSPF area ID
 * `1234` - AS number where OSPF is working
 * `192.168.145.5` - IP address on detected node
+* `` - empty remote IP address
+* `981e52b4-175b-11f1-b65c-c25d5799b044` - session ID, the same session till next LSDB update
+* `10.10.10.1` - source ID
 *Summary: `10.10.10.5` detected that `10.10.10.4` host on the interface with `192.168.145.5` IP address in area 0 in AS 1234 went down at `2023-01-01T00:00:00Z`*
 
 ##### Logs sample 2  
 ```
-2023-01-01T00:00:00Z,demo-watcher,network,192.168.13.0/24,changed,old_cost:10,new_cost:12,10.10.10.1,01Jan2023_00h00m00s_7_hosts,0.0.0.0,1234,internal,0
+2023-01-01T00:00:00Z,demo-watcher,network,192.168.13.0/24,changed,old_cost:10,new_cost:12,10.10.10.1,01Jan2023_00h00m00s_7_hosts,0.0.0.0,1234,internal,0,981e52b4-175b-11f1-b65c-c25d5799b044,10.10.10.1
 ```
 
 * `2023-01-01T00:00:00Z` - event timestamp
@@ -138,11 +146,13 @@ sudo tail -f watcher/watcher.log
 * `1234` - AS number where OSPF is working
 * `internal` - type of network: `internal` or `external`
 * `0` - subtype of network: type-1, type-2 or 0 for internal subnets
+* `981e52b4-175b-11f1-b65c-c25d5799b044` - session ID, the same session till next LSDB update
+* `10.10.10.1` - source ID
 *Summary: `10.10.10.1` detected that metric of `192.168.13.0/24` internal stub network changed from `10` to `12` at `2023-01-01T00:00:00Z` in area 0*
 
 ##### Logs sample 3 (TE)
 ```
-2024-12-29T13:20:50.398Z,ospfwatcher-demo,temetric,10.10.10.6,changed,0_17_19_20_21_22_26_29_30,1000000000,1000000000,1000000008_1000000016_1000000024_1000000032_1000000040_1000000048_1000000056,11223344,10.10.10.3,2024-07-28T18:03:05Z,0.0.0.0,12345,192.168.36.3,192.168.36.6
+2024-12-29T13:20:50.398Z,ospfwatcher-demo,temetric,10.10.10.6,changed,0_17_19_20_21_22_26_29_30,1000000000,1000000000,1000000008_1000000016_1000000024_1000000032_1000000040_1000000048_1000000056,11223344,10.10.10.3,2024-07-28T18:03:05Z,0.0.0.0,12345,192.168.36.3,192.168.36.6,981e52b4-175b-11f1-b65c-c25d5799b044,10.10.10.1
 ```
 * `temetric` - event name for TE attribute change
 * `10.10.10.6` - event object (neighbor/link ID)
@@ -153,17 +163,10 @@ sudo tail -f watcher/watcher.log
 * `11223344` - Traffic Engineering Default Metric
 * `10.10.10.3` - event detected by (advertising router)
 * `192.168.36.3`, `192.168.36.6` - local and remote interface IP addresses
+* `981e52b4-175b-11f1-b65c-c25d5799b044` - session ID, the same session till next LSDB update
+* `10.10.10.1` - source ID
 ```
 
-## Watcher's tests output
-
-6.5 Change TE attributes. Watcher output
-```
-2023-01-01T00:49:40.067Z,ospfwatcher-demo,temetric,192.168.36.6,changed,0_17_19_20_21_22_26_29_30,1410065408,1410065408,9840000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
-2023-01-01T00:50:02.707Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1410065408,1410065408,9840000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
-2023-01-01T00:50:08.308Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1410065408,1410065408,80000000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
-2026-03-03T00:51:48.232Z,ospfwatcher-demo,temetric,192.168.36.6,changed,1_3_5_7,1600000000,1410065408,80000000_1410065408_1410065408_1410065408_1410065408_9840000_1410065408_1410065408,100,10.10.10.6,03Mar2026_00h47m13s_6_hosts,0.0.0.0,12345,192.168.36.6,
-```
 
 Note:
 log file should have `systemd-network:systemd-journal` ownership

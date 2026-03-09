@@ -13,7 +13,7 @@ create_log_file() {
     mkdir -p "$LOG_DIR"
 
     # Create or truncate the log file and set ownership
-    install -o "${OWNER%%:*}" -g "${OWNER##*:}" -m 644 /dev/null "$LOG_FILE"
+    install -o "${OWNER%%:*}" -g "${OWNER##*:}" -m 777 /dev/null "$LOG_FILE"
     echo "[$(date)] Log file initialized at $LOG_FILE"
 }
 
