@@ -20,6 +20,10 @@ services:
         # source: /home/ubuntu/ospfwatcher/containerlab/ospf01/watcher/logs
         target: /home/watcher/watcher/logs
         read_only: true
+      - type: bind
+        source: ./certs
+        target: /usr/share/logstash/certs
+        read_only: true
     environment:
       ELASTIC_USER_LOGIN: $ELASTIC_USER_LOGIN
       ELASTIC_USER_PASS: $ELASTIC_USER_PASS
@@ -40,6 +44,11 @@ services:
       EXPORT_TO_TOPOLOGRAPH_SOCKET: $EXPORT_TO_TOPOLOGRAPH_SOCKET
       TOPOLOGRAPH_HOST: $TOPOLOGRAPH_HOST
       TOPOLOGRAPH_PORT: $TOPOLOGRAPH_PORT
+      TLS_ENABLED: $TLS_ENABLED
+      TLS_CA_CERT: $TLS_CA_CERT
+      TLS_CLIENT_CERT: $TLS_CLIENT_CERT
+      TLS_CLIENT_KEY: $TLS_CLIENT_KEY
+      TLS_VERIFY: $TLS_VERIFY
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9600"]
       interval: 5s
@@ -60,11 +69,20 @@ services:
         source: ./logstash/index_template/create.py
         target: /home/watcher/watcher/create.py
         read_only: true
+      - type: bind
+        source: ./certs
+        target: /usr/share/logstash/certs
+        read_only: true
     environment:
       ELASTIC_USER_LOGIN: $ELASTIC_USER_LOGIN
       ELASTIC_USER_PASS: $ELASTIC_USER_PASS
       ELASTIC_IP: $ELASTIC_IP
       ELASTIC_PORT: $ELASTIC_PORT
+      TLS_ENABLED: $TLS_ENABLED
+      TLS_CA_CERT: $TLS_CA_CERT
+      TLS_CLIENT_CERT: $TLS_CLIENT_CERT
+      TLS_CLIENT_KEY: $TLS_CLIENT_KEY
+      TLS_VERIFY: $TLS_VERIFY
     entrypoint: ["python", "create.py"]
     networks:
       - topolograph_backend

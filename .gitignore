@@ -9,3 +9,8 @@ watcher/*
 !watcher/watcher-template/
 clab-watcher*
 containerlab/ospf01/watcher
+# TLS certificates - keep directory but ignore actual cert/key files
+certs/*.pem
+certs/*.crt
+certs/*.key
+certs/*.p12

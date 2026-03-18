@@ -246,12 +246,21 @@ class WATCHER_CONFIG:
         # using TOPOLOGRAPH_* env variable check if get request is ok
         _login, _pass = os.getenv('TOPOLOGRAPH_WEB_API_USERNAME_EMAIL', ''), os.getenv('TOPOLOGRAPH_WEB_API_PASSWORD', '')
         _host, _port = os.getenv('TOPOLOGRAPH_HOST', ''), os.getenv('TOPOLOGRAPH_PORT', '')
+        # TLS configuration
+        _tls_enabled = os.getenv('TLS_ENABLED', 'False') == 'True'
+        _tls_ca_cert = os.getenv('TLS_CA_CERT', 'certs/ca.pem')
+        _tls_verify = os.getenv('TLS_VERIFY', 'True') == 'True'
+        _scheme = 'https' if _tls_enabled else 'http'
+        if _tls_enabled:
+            _verify = _tls_ca_cert if _tls_verify and os.path.exists(_tls_ca_cert) else _tls_verify
+        else:
+            _verify = False
         try:
-            r_get = requests.get(f'http://{_host}:{_port}/api/graph/', auth=(_login, _pass), timeout=(5, 30))
+            r_get = requests.get(f'{_scheme}://{_host}:{_port}/api/graph/', auth=(_login, _pass), timeout=(5, 30), verify=_verify)
         except requests.exceptions.ConnectionError:
             raise(f"couldn't connect to {_host}:{_port}. Please check that Topolograph is accessible and {_login} user is created")
         status_name = 'ok' if r_get.ok else 'bad'
-        print(f"Access to {_host}:{_port} is {status_name}")
+        print(f"Access to {_host}:{_port} is {status_name} (TLS: {_tls_enabled})")
         if r_get.status_code != 200:
             print(f"Access to {_host}:{_port} is {r_get.status_code} error, details: {r_get.text}")
         return r_get.ok
