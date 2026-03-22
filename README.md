@@ -2,8 +2,8 @@
 OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers. It works via passively listening to OSPF control plane messages through a specially established OSPF adjacency between OSPF Watcher and one of the network device. The tool logs OSPF events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. Components of the solution are wrapped into containers, so it can be increadebly fast to start it. The only thing is needed to configure manually - is GRE tunnel setup on the Linux host.
 
 > [!NOTE]
-> Upvote in [issues/12](https://github.com/Vadims06/ospfwatcher/issues/12) if
-> you are interested in tracking OSPF topology changes via BGP-LS.
+> Tracking OSPF topology changes via **BGP-LS** is **supported starting from Docker image `vadims06/ospf-watcher:v3.1.0`**.
+> For older images, BGP-LS support is not available.
 
 ## Logged topology changes:
 * OSPF neighbor adjacency Up/Down
@@ -370,6 +370,41 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
     sudo docker exec -it watcher#-gre#-ospf-router vtysh
     ```
     `show ip ospf neighbor` should show network device as a neighbor in the output.
+
+**For BGP-LS Mode:**
+
+1. Check `bgplswatcher` container logs:
+
+    ```bash
+    sudo docker logs watcher<num>-bgpls-ospf-bgplswatcher
+    ```
+
+    OSPF Watcher posts topology to Topolograph after BGP session establishment via BGP-LS.
+
+2. Verify BGP session is established using `gobgp` CLI:
+
+    ```bash
+    # List all BGP neighbors with session status
+    docker exec -it watcher<num>-bgpls-ospf-bgplswatcher gobgp neighbor
+    
+    # Show detailed status for a specific neighbor
+    docker exec -it watcher<num>-bgpls-ospf-bgplswatcher gobgp neighbor <neighbor-ip-address>
+    
+    # Check routes received from a neighbor (BGP-LS address family)
+    docker exec -it watcher<num>-bgpls-ospf-bgplswatcher gobgp neighbor <neighbor-ip> adj-in -a ls
+    
+    # Check global RIB (accepted routes)
+    docker exec -it watcher<num>-bgpls-ospf-bgplswatcher gobgp global rib -a ls
+    ```
+
+    The `gobgp neighbor` command shows:
+
+    - **Peer**: Neighbor IP address  
+    - **AS**: Remote AS number  
+    - **Up/Down**: Session uptime  
+    - **State**: Session state (`Establ` = Established, `Idle`, `Connect`, `Active`, etc.)  
+    - **#Received**: Number of routes received  
+    - **Accepted**: Number of routes accepted  
 
 ##### Symptoms
 Dashboard page is blank. Events are not present on OSPF Monitoring page.

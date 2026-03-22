@@ -35,20 +35,37 @@ class WATCHER_CONFIG:
     OSPF_FILTER_NODE_IMAGE = "vadims06/ospf-filter-xdp:latest"
     LOGROTATION_NODE_NAME = "logrotation"
     LOGROTATION_IMAGE = "vadims06/docker-logrotate:v1.0.0"
+    BGPLSWATCHER_NODE_NAME = "bgplswatcher"
+    BGPLSWATCHER_IMAGE = "vadims06/bgplswatcher:latest"
 
     def __init__(self, watcher_num, protocol="ospf"):
         self.watcher_num = watcher_num
-        # default
+        # default connection mode and GRE/BGP-LS settings
+        self.connection_mode = "gre"  # "gre" or "bgpls"
+        # GRE / OSPF mode
         self.gre_tunnel_network_device_ip = ""
         self.gre_tunnel_ip_w_mask_network_device = ""
         self.gre_tunnel_ip_w_mask_watcher = ""
         self.gre_tunnel_number = 0
-        self.ospf_area_num = "" # 0.0.0.0
+        self.ospf_area_num = ""  # 0.0.0.0
         self.host_interface_device_ip = ""
         self.protocol = protocol
         self.asn = 0
         self.organisation_name = ""
         self.watcher_name = ""
+        self.enable_xdp: bool = False
+        self.enable_topolograph: bool = False
+        # BGP-LS specific attributes (mirrors IS-IS watcher)
+        self.bgpls_router_ip = ""
+        self.bgpls_router_as = 0
+        self.bgpls_watcher_as = 0
+        self.bgpls_router_id = ""
+        self.bgpls_passive_mode = False
+        self.bgpls_listen_port = 50051
+        self.bgpls_grpc_port = 0
+        self.bgpls_ebgp_multihop = False
+        # Delay before bgplswatcher dials ospfwatcher gRPC (matches gobgp config.toml)
+        self.wait_sec_before_send_topology = 2
 
     @staticmethod
     def gen_next_free_number():
@@ -77,16 +94,24 @@ class WATCHER_CONFIG:
 
     def import_from(self, watcher_num):
         """
-        Browse a folder directory and find a folder with watcher num. Parse GRE tunnel
+        Browse a folder directory and find a folder with watcher num.
+        Parse GRE tunnel or BGP-LS settings from existing config.
         """
-        # watcher1-gre1025-ospf
-        watcher_re = re.compile("(?P<name>[a-zA-Z]+)(?P<watcher_num>\d+)-gre(?P<gre_num>\d+)(-(?P<proto>[a-zA-Z]+))?")
+        # watcher1-gre1025-ospf or watcher1-bgpls-ospf
+        watcher_re_gre = re.compile(r"(?P<name>[a-zA-Z]+)(?P<watcher_num>\d+)-gre(?P<gre_num>\d+)(-(?P<proto>[a-zA-Z]+))?")
+        watcher_re_bgpls = re.compile(r"(?P<name>[a-zA-Z]+)(?P<watcher_num>\d+)-bgpls(-(?P<proto>[a-zA-Z]+))?")
         for file in self.get_existed_watchers():
-            watcher_match = watcher_re.match(file)
+            watcher_match_gre = watcher_re_gre.match(file)
+            watcher_match_bgpls = watcher_re_bgpls.match(file)
+            watcher_match = watcher_match_gre or watcher_match_bgpls
             if watcher_match and watcher_match.groupdict().get("watcher_num", "") == str(watcher_num):
-                # these two attributes are needed to build paths
+                # these attributes are needed to build paths
                 self.protocol = watcher_match.groupdict().get("proto") if watcher_match.groupdict().get("proto") else self.protocol
-                self.gre_tunnel_number = int(watcher_match.groupdict().get("gre_num", 0))
+                if watcher_match_gre:
+                    self.connection_mode = "gre"
+                    self.gre_tunnel_number = int(watcher_match.groupdict().get("gre_num", 0))
+                elif watcher_match_bgpls:
+                    self.connection_mode = "bgpls"
                 for label, value in self.watcher_config_file_yml.get('topology', {}).get('defaults', {}).get('labels', {}).items():
                     setattr(self, label, value)
                 break
@@ -148,6 +173,8 @@ class WATCHER_CONFIG:
 
     @property
     def watcher_folder_name(self):
+        if self.connection_mode == "bgpls":
+            return f"watcher{self.watcher_num}-bgpls-{self.protocol}"
         return f"watcher{self.watcher_num}-gre{self.gre_tunnel_number}-{self.protocol}"
 
     @property
@@ -194,6 +221,10 @@ class WATCHER_CONFIG:
     @property
     def ospf_watcher_folder_path(self):
         return os.path.join(self.watcher_folder_path, self.WATCHER_NODE_NAME)
+
+    @property
+    def bgplswatcher_folder_path(self):
+        return os.path.join(self.watcher_folder_path, self.BGPLSWATCHER_NODE_NAME)
         
     @property
     def netns_name(self):
@@ -216,11 +247,11 @@ class WATCHER_CONFIG:
     @staticmethod
     def do_check_area_num(area_num):
         """ area only digits. max 32 it shouldn't be more. 0-4'294'967'295 FRR """
-        area_match = re.match('^\d{1,32}$', area_num)
+        area_match = re.match(r'^\d{1,32}$', area_num)
         area_in_ip_notation = ""
         if area_match:
             area_in_ip_notation = str(ipaddress.ip_address(int(area_match.group(0)))) if int(area_match.group(0)) != 0 else "0.0.0.0"
-        elif re.match('^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', area_num):
+        elif re.match(r'^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$', area_num):
             area_in_ip_notation = area_num
         return area_in_ip_notation
 
@@ -244,17 +275,19 @@ class WATCHER_CONFIG:
         from dotenv import load_dotenv
         load_dotenv()
         # using TOPOLOGRAPH_* env variable check if get request is ok
-        _login, _pass = os.getenv('TOPOLOGRAPH_WEB_API_USERNAME_EMAIL', ''), os.getenv('TOPOLOGRAPH_WEB_API_PASSWORD', '')
-        _host, _port = os.getenv('TOPOLOGRAPH_HOST', ''), os.getenv('TOPOLOGRAPH_PORT', '')
         try:
+            _login, _pass = os.getenv('TOPOLOGRAPH_WEB_API_USERNAME_EMAIL', ''), os.getenv('TOPOLOGRAPH_WEB_API_PASSWORD', '')
+            _host, _port = os.getenv('TOPOLOGRAPH_HOST', ''), os.getenv('TOPOLOGRAPH_PORT', '')
             r_get = requests.get(f'http://{_host}:{_port}/api/graph/', auth=(_login, _pass), timeout=(5, 30))
-        except requests.exceptions.ConnectionError:
-            raise(f"couldn't connect to {_host}:{_port}. Please check that Topolograph is accessible and {_login} user is created")
-        status_name = 'ok' if r_get.ok else 'bad'
-        print(f"Access to {_host}:{_port} is {status_name}")
-        if r_get.status_code != 200:
-            print(f"Access to {_host}:{_port} is {r_get.status_code} error, details: {r_get.text}")
-        return r_get.ok
+            status_name = 'ok' if r_get.ok or r_get.status_code == 404 else 'bad'
+            print(f"Access to {_host}:{_port} is {status_name}")
+            if r_get.status_code != 200 and r_get.status_code != 404:
+                print(f"Access to {_host}:{_port} is {r_get.status_code} error, details: {r_get.text}")
+            return r_get.ok
+        except Exception as e:
+            print(f"Warning: Could not check Topolograph availability: {e}")
+            print("Continuing with watcher setup...")
+            return False
 
     @staticmethod
     def _get_digit_net_mask(ip_address_w_mask):
@@ -278,6 +311,10 @@ class WATCHER_CONFIG:
         return ipaddress.ip_interface(ip_address_w_mask_1).network == ipaddress.ip_interface(ip_address_w_mask_2).network
 
     def create_folder_with_settings(self):
+        if self.connection_mode == "bgpls":
+            self.create_folder_with_settings_bgpls()
+            return
+        # GRE / OSPF mode (existing implementation)
         # watcher folder
         os.mkdir(self.watcher_folder_path)
         # ospf-watcher folder
@@ -362,6 +399,8 @@ class WATCHER_CONFIG:
 
     def do_watcher_postchecks(self):
         if os.path.exists(self.watcher_folder_path):
+            if self.connection_mode == "bgpls":
+                raise ValueError(f"Watcher{self.watcher_num} with BGP-LS already exists")
             raise ValueError(f"Watcher{self.watcher_num} with GRE{self.gre_tunnel_number} already exists")
         # TODO, check if GRE with the same tunnel destination already exist without root access
         # Requires root access. TODO https://stackoverflow.com/questions/72015197/allow-non-root-user-of-container-to-execute-binaries-that-need-capabilities
@@ -386,7 +425,113 @@ class WATCHER_CONFIG:
 +---------------------------+                                        
         """)
 
+    @staticmethod
+    def do_print_banner_bgpls():
+        print("""
++-------------------------------+                                        
+|  Watcher Host                 |                       +-------------------+
+|  +-------------------+        |                       | Network Router    |
+|  | bgplswatcher[3][4]|        |                       |                   |
+|  | (GoBGP)           |<-------+BGP Session [1][2]---+ | BGP Session [1][2]|
+|  |      [gRPC]       |        |                       |    ^              |
+|  |        |          |        |                       |    |              |
+|  |        v          |        |                       | BGP-LS            |
+|  | ospf-watcher      |        |                       |    ^              |
+|  | (Python)          |        |                       |    |              |
+|  |                   |        |                       | OSPF [5]          |
+|  +-------------------+        |                       |                   |
+|                               |                       +-------------------+
++-------------------------------+                                            
+        """)
+
+    def add_watcher_dialog_bgpls(self):
+        # Router IP address (BGP peer)
+        while not self.bgpls_router_ip:
+            self.bgpls_router_ip = self.do_check_ip(input("[1]Router IP address (BGP peer) [x.x.x.x]: "))
+        # Router AS number
+        while not self.bgpls_router_as:
+            router_as_input = input("[2]Router AS number: ")
+            if router_as_input.isdigit():
+                self.bgpls_router_as = int(router_as_input)
+            else:
+                print("Please provide a valid AS number")
+        # Watcher AS number
+        while not self.bgpls_watcher_as:
+            watcher_as_input = input("[3]Watcher AS number: ")
+            if watcher_as_input.isdigit():
+                self.bgpls_watcher_as = int(watcher_as_input)
+            else:
+                print("Please provide a valid AS number")
+        # Check if AS numbers don't match (eBGP) and enable multihop
+        self.bgpls_ebgp_multihop = False
+        if self.bgpls_router_as and self.bgpls_watcher_as and self.bgpls_router_as != self.bgpls_watcher_as:
+            self.bgpls_ebgp_multihop = True
+            print("⚠ eBGP multihop was enabled with TTL 255. Don't forget to configure it on the router side")
+        # Watcher router-id
+        while not self.bgpls_router_id:
+            self.bgpls_router_id = self.do_check_ip(input("[4]Watcher router-id [x.x.x.x]: "))
+        # OSPF settings (for labeling/logging)
+        while not self.ospf_area_num:
+            self.ospf_area_num = self.do_check_area_num(input("[5]OSPF area number [\\d+|\\d+.\\d+.\\d+.\\d+], i.e 0 or 63.0.0.0: "))
+        # Passive mode
+        self.bgpls_passive_mode = None
+        while self.bgpls_passive_mode is None:
+            passive_mode_reply = input("[6]Passive mode? [y/N] ")
+            if not passive_mode_reply:
+                self.bgpls_passive_mode = False
+            else:
+                if passive_mode_reply.lower().strip() == 'y':
+                    self.bgpls_passive_mode = True
+                elif passive_mode_reply.lower().strip() == 'n':
+                    self.bgpls_passive_mode = False
+                    print("⚠ Passive mode disabled - it limits the number of goBGP instances running on the same host to 1")
+                    print("⚠ You can run multiple goBGP instances on the same host by disabling passive mode")
+        # Calculate gRPC port based on protocol (OSPF watcher uses OSPF base)
+        if self.protocol == "ospf":
+            self.bgpls_grpc_port = 50200 + self.watcher_num
+        else:
+            self.bgpls_grpc_port = 50100 + self.watcher_num
+        # Topolograph's IP settings
+        self.enable_topolograph = False
+        while True:
+            enable_topolograph_reply = input("Enable Topolograph? [Y/n] ")
+            if not enable_topolograph_reply:
+                self.enable_topolograph = True
+                break
+            if enable_topolograph_reply.lower().strip() == 'y':
+                self.enable_topolograph = True
+                break
+            if enable_topolograph_reply.lower().strip() == 'n':
+                self.enable_topolograph = False
+                break
+        if self.enable_topolograph:
+            while not self.host_interface_device_ip:
+                self.host_interface_device_ip = self.do_check_ip(input("Watcher host IP address: "))
+            self._add_topolograph_host_to_env()
+            self.do_check_topolograph_availability()
+        # Tags
+        asn_default = self.bgpls_watcher_as if self.bgpls_watcher_as else 0
+        asn_input = input(f"AS number, where OSPF is configured: [{asn_default}] ")
+        if not asn_input:
+            self.asn = asn_default
+        elif asn_input.isdigit():
+            self.asn = int(asn_input)
+        else:
+            self.asn = asn_default
+        self.organisation_name = str(input("Organisation name: ")).lower()
+        self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
+        if not self.watcher_name:
+            self.watcher_name = "ospfwatcher-demo"
+        # XDP is not used in BGP-LS mode
+        self.enable_xdp = False
+
     def add_watcher_dialog(self):
+        # Connection mode should already be set by add_watcher
+        if self.connection_mode == "bgpls":
+            self.add_watcher_dialog_bgpls()
+            return
+
+        # GRE / OSPF mode dialog (existing)
         while not self.gre_tunnel_network_device_ip:
             self.gre_tunnel_network_device_ip = self.do_check_ip(input("[1]Network device IP [x.x.x.x]: "))
         while not self.gre_tunnel_ip_w_mask_network_device:
@@ -423,21 +568,23 @@ class WATCHER_CONFIG:
                 self.gre_tunnel_number = int(self.gre_tunnel_number)
         # OSPF settings
         while not self.ospf_area_num:
-            self.ospf_area_num = self.do_check_area_num(input("[5]OSPF area number [\d+|\d+.\d+.\d+.\d+], i.e 0 or 63.0.0.0: "))
+            self.ospf_area_num = self.do_check_area_num(input("[5]OSPF area number [\\d+|\\d+.\\d+.\\d+.\\d+], i.e 0 or 63.0.0.0: "))
         # Host interface name for NAT
         while not self.host_interface_device_ip:
             self.host_interface_device_ip = self.do_check_ip(input("[6]Watcher host IP address: "))
         # Topolograph's IP settings
-        self.enable_topolograph = None
-        while self.enable_topolograph is None:
+        self.enable_topolograph = False
+        while True:
             enable_topolograph_reply = input("Enable Topolograph? [Y/n] ")
             if not enable_topolograph_reply:
                 self.enable_topolograph = True
-            else:
-                if enable_topolograph_reply.lower().strip() == 'y':
-                    self.enable_topolograph = True
-                elif enable_topolograph_reply.lower().strip() == 'n':
-                    self.enable_topolograph = False
+                break
+            if enable_topolograph_reply.lower().strip() == 'y':
+                self.enable_topolograph = True
+                break
+            if enable_topolograph_reply.lower().strip() == 'n':
+                self.enable_topolograph = False
+                break
         if self.enable_topolograph:
             self._add_topolograph_host_to_env()
             self.do_check_topolograph_availability()
@@ -480,6 +627,124 @@ class WATCHER_CONFIG:
             f'sudo conntrack -D --src {self.gre_tunnel_network_device_ip} -p 47',
         ]
 
+    def generate_bgplswatcher_config(self):
+        """Generate config.toml for bgplswatcher (GoBGP) in BGP-LS mode"""
+        config_toml_path = os.path.join(self.bgplswatcher_folder_path, "config.toml")
+        topolograph_endpoint = f"localhost:{self.bgpls_grpc_port}"
+
+        config_content = f"""[global.config]
+  as = {self.bgpls_watcher_as}
+  router-id = "{self.bgpls_router_id}"
+  topolograph-watcher-endpoint = "{topolograph_endpoint}"
+  wait_sec_before_send_topology = {self.wait_sec_before_send_topology}
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "{self.bgpls_router_ip}"
+    peer-as = {self.bgpls_router_as}
+    topolograph-watcher-endpoint = "{topolograph_endpoint}"
+"""
+        if self.bgpls_passive_mode:
+            config_content += "    passive-mode = true\n"
+
+        if self.bgpls_ebgp_multihop:
+            config_content += (
+                "  [neighbors.ebgp-multihop.config]\n"
+                "    enabled = true\n"
+                "    multihop-ttl = 255\n"
+            )
+
+        with open(config_toml_path, "w") as f:
+            f.write(config_content)
+
+    def create_folder_with_settings_bgpls(self):
+        """Create folder structure and config for BGP-LS mode"""
+        # watcher folder
+        os.mkdir(self.watcher_folder_path)
+        # logs folder
+        watcher_logs_folder_path = os.path.join(self.watcher_root_folder_path, "logs")
+        if not os.path.exists(watcher_logs_folder_path):
+            os.mkdir(watcher_logs_folder_path)
+        # Create log file
+        with open(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 'w') as fp:
+            pass
+        os.chmod(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 0o755)
+        # bgplswatcher folder
+        os.mkdir(self.bgplswatcher_folder_path)
+        # Generate bgplswatcher config.toml
+        self.generate_bgplswatcher_config()
+        # Generate containerlab config.yml
+        watcher_config_yml = copy.deepcopy(self.watcher_config_template_yml)
+        watcher_config_yml["name"] = self.watcher_folder_name
+        # Remove GRE-related nodes and links
+        for node_name in ["router", "h1", "h2", self.OSPF_FILTER_NODE_NAME]:
+            if node_name in watcher_config_yml["topology"]["nodes"]:
+                del watcher_config_yml["topology"]["nodes"][node_name]
+        if "links" in watcher_config_yml["topology"]:
+            del watcher_config_yml["topology"]["links"]
+        # Store BGP-LS config in labels
+        watcher_config_yml["topology"].setdefault("defaults", {}).setdefault("labels", {}).update(
+            {
+                "connection_mode": "bgpls",
+                "bgpls_router_ip": self.bgpls_router_ip,
+                "bgpls_router_as": self.bgpls_router_as,
+                "bgpls_watcher_as": self.bgpls_watcher_as,
+                "bgpls_router_id": self.bgpls_router_id,
+                "bgpls_passive_mode": self.bgpls_passive_mode,
+                "bgpls_grpc_port": self.bgpls_grpc_port,
+                "wait_sec_before_send_topology": self.wait_sec_before_send_topology,
+                "ospf_area_num": self.ospf_area_num,
+                "asn": self.asn,
+                "organisation_name": self.organisation_name,
+                "watcher_name": self.watcher_name,
+            }
+        )
+        # bgplswatcher node
+        watcher_config_yml["topology"]["nodes"][self.BGPLSWATCHER_NODE_NAME] = {
+            "kind": "linux",
+            "image": self.BGPLSWATCHER_IMAGE,
+            "binds": [
+                "bgplswatcher/config.toml:/app/config.toml:ro",
+            ],
+        }
+        if self.bgpls_passive_mode:
+            watcher_config_yml["topology"]["nodes"][self.BGPLSWATCHER_NODE_NAME].setdefault("ports", []).append("179:179")
+        # ospf-watcher node (BGP-LS mode)
+        watcher_node = watcher_config_yml["topology"]["nodes"][self.WATCHER_NODE_NAME]
+        watcher_node["image"] = "vadims06/ospf-watcher:latest"
+        watcher_node["network-mode"] = f"container:{self.BGPLSWATCHER_NODE_NAME}"
+        # Clean entrypoint/cmd to avoid conflicts, then set BGP mode
+        if "entrypoint" in watcher_node:
+            del watcher_node["entrypoint"]
+        if "cmd" in watcher_node:
+            del watcher_node["cmd"]
+        watcher_node["entrypoint"] = "/entrypoint.sh"
+        watcher_node["cmd"] = "bgp"
+        watcher_node["binds"] = [
+            f"../logs/{self.watcher_log_file_name}:/home/watcher/watcher/logs/watcher.log",
+        ]
+        watcher_node["env"] = {
+            "BGP_GRPC_PORT": str(self.bgpls_grpc_port),
+            "WATCHER_LOGFILE": "/home/watcher/watcher/logs/watcher.log",
+            "ASN": self.asn,
+            "WATCHER_NAME": self.watcher_name,
+            "AREA_NUM": self.ospf_area_num,
+        }
+        # Clean up stages that reference removed nodes
+        stages = watcher_node.get("stages", {})
+        if "create" in stages and "wait-for" in stages["create"]:
+            stages["create"]["wait-for"] = [
+                wait_item
+                for wait_item in stages["create"]["wait-for"]
+                if wait_item.get("node") not in ["h1", "h2", "router", self.OSPF_FILTER_NODE_NAME]
+            ]
+        # logrotation node
+        watcher_config_yml["topology"]["nodes"][self.LOGROTATION_NODE_NAME]["image"] = self.LOGROTATION_IMAGE
+        watcher_config_yml["topology"]["nodes"][self.LOGROTATION_NODE_NAME].setdefault("binds", []).append(
+            f"../logs/{self.watcher_log_file_name}:/logs/watcher.log"
+        )
+        self._do_save_watcher_config_file(watcher_config_yml)
+
     @classmethod
     def parse_command_args(cls, args):
         allowed_actions = [actions.value for actions in ACTIONS]
@@ -494,9 +759,23 @@ class WATCHER_CONFIG:
         return method()
 
     def add_watcher(self):
-        self.do_print_banner()
-        # pre-check mandatory Linux tools installed
-        # diagnostic.LINUX_HOST().get_conntrack(if_raise=True) # Operation failed: sorry, you must be root or get CAP_NET_ADMIN capability to do this
+        # Ask for connection mode first to show correct banner
+        connection_mode_input = None
+        while connection_mode_input not in ["gre", "bgpls"]:
+            connection_mode_input = input("Connection mode (gre/bgpls): [gre] ").lower().strip()
+            if not connection_mode_input:
+                connection_mode_input = "gre"
+            if connection_mode_input not in ["gre", "bgpls"]:
+                print("Please enter 'gre' or 'bgpls'")
+        self.connection_mode = connection_mode_input
+
+        # Show appropriate banner
+        if self.connection_mode == "bgpls":
+            self.do_print_banner_bgpls()
+        else:
+            self.do_print_banner()
+
+        # pre-check mandatory Linux tools installed (left for future)
         self.add_watcher_dialog()
         self.do_watcher_postchecks()
         # create folder
@@ -561,7 +840,11 @@ class WATCHER_CONFIG:
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description="Provisioning Watcher instances for tracking OSPF topology changes"
+        description=(
+            "Provisioning Watcher instances for tracking OSPF topology changes. "
+            "BGP-LS-based tracking is supported starting from Docker image "
+            "vadims06/ospf-watcher:v3.0.3."
+        )
     )
     parser.add_argument(
         "--action", required=True, help="Options: add_watcher, enable_xdp, disable_xdp, diagnostic"
