@@ -9,6 +9,12 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 * OSPF neighbor adjacency Up/Down
 * OSPF link cost changes
 * OSPF networks appeared/disappeared from the topology
+* OSPF TE attributes (via Opaque LSA / BGP-LS):
+  * Administrative Group (color, resource class)
+  * Maximum Link Bandwidth
+  * Maximum Reservable Link Bandwidth
+  * Unreserved Bandwidth
+  * Traffic Engineering Default Metric
 
 ## Architecture
 ![](docs/ospfwatcher_plus_topolograph_architecture_v3_xdp_rules.png)  
@@ -183,6 +189,7 @@ docker-compose up -d
   ```bash
   docker compose --profile fluent-bit up -d fluent-bit
   ```
+  Pipeline definition: [`fluentbit/fluent-bit.yaml`](./fluentbit/fluent-bit.yaml) (bind-mounted into the container). Logstash and Fluent Bit send HTTP payloads in different shapes; see **HTTP output: Logstash vs Fluent Bit** under *Minimum version*.
 
 ### Device configuration
 Setup GRE tunnel from the network device to the host. An example for Cisco
@@ -488,7 +495,15 @@ Add your changes in `./logstash/pipeline` file, stop logstash process via CTRL+C
 
 ### Minimum version
 #### Logstash
- 7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
+ 7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)
+
+> [!NOTE]
+> **HTTP output: Logstash vs Fluent Bit** — the `http` plugins use different `format` options and batching rules. Align the receiver (e.g. Topolograph `/websocket`) with the body shape you send.
+>
+> * **Logstash** ([http output](https://www.elastic.co/guide/en/logstash/current/plugins-outputs-http.html)): `format` is one of `json` (default), `json_batch`, `form`, or `message`. With **`json`**, each request body is typically **one JSON object per event**. With **`json_batch`**, each request sends **one JSON array** containing a whole pipeline batch (common for Logstash-to-Logstash). `content_type` defaults from `format` (e.g. `application/json` for `json` / `json_batch`).
+> * **Fluent Bit** ([http output](https://docs.fluentbit.io/manual/pipeline/outputs/http)): `Format` is one of `json` (default), `json_lines`, `json_stream`, `msgpack`, or `gelf`. With **`json`**, the body is a **JSON array** of records for a flush chunk. **`json_lines`** is newline-delimited JSON (one object per line). How many records appear in one POST is driven mainly by the engine **chunk** and the global **[SERVICE] `Flush`** interval, not by Logstash’s `json` vs `json_batch` switch.
+>
+> Example Fluent Bit pipeline for this repo: [`fluentbit/fluent-bit.yaml`](./fluentbit/fluent-bit.yaml).
 
 #### scapy
 2.5.0 works, 2.6.0 raises an exception
