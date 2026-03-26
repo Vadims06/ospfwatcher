@@ -12,6 +12,7 @@ interface gre1
 exit
 !
 router ospf
+capability opaque
 network {{tunnel_subnet_w_digit_mask}} area {{area_num}}
 !
 route-map TO_KERNEL deny 200
