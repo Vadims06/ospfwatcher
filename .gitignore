@@ -9,3 +9,5 @@ watcher/*
 !watcher/watcher-template/
 clab-watcher*
 containerlab/ospf01/watcher
+containerlab/ospf01/clab-ospf01/
+.env
