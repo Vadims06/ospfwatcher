@@ -1,5 +1,5 @@
 # OSPF Topology Watcher
-OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers. It works via passively listening to OSPF control plane messages through a specially established OSPF adjacency between OSPF Watcher and one of the network device. The tool logs OSPF events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. Components of the solution are wrapped into containers, so it can be increadebly fast to start it. The only thing is needed to configure manually - is GRE tunnel setup on the Linux host.
+OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers. It works via passively listening to OSPF control plane messages through either a specially established OSPF adjacency over a GRE tunnel (GRE mode) or by receiving BGP-LS updates from a network router (BGP-LS mode). The tool logs OSPF events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. Components of the solution are wrapped into containers, so it can be increadebly fast to start it. In GRE mode, GRE tunnel setup on the Linux host is configured manually.
 
 > [!NOTE]
 > Tracking OSPF topology changes via **BGP-LS** is **supported starting from Docker image `vadims06/ospf-watcher:v3.1.0`**.
@@ -17,11 +17,19 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
   * Traffic Engineering Default Metric
 
 ## Architecture
+
+### Connection Modes
+
+OSPF Watcher supports two connection modes:
+
+#### GRE Mode (Traditional)
+The FRR container is isolated in an individual network namespace and establishes an OSPF adjacency over a GRE tunnel with a network device. The **XDP OSPF filter** inspects all outgoing OSPF advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, OSPF Database description (DB) or LSUpdate will be dropped. It prevents the network from populating by unexpected network prefixes.
+
+#### BGP-LS Mode (New)
+The watcher connects to a network router via BGP-LS (BGP Link-State) protocol. The router must be configured to advertise OSPF topology information via BGP-LS. The watcher uses GoBGP (bgplswatcher) to establish a BGP session and receive BGP-LS updates, which are then processed by the OSPF watcher component. This mode eliminates the need for GRE tunnels and OSPF adjacencies, making it easier to deploy in environments where GRE tunnels are not feasible.
+
 ![](docs/ospfwatcher_plus_topolograph_architecture_v3_xdp_rules.png)  
 Each Watcher instance maintains all routes and updates within an isolated network namespace. This isolation ensures efficient monitoring without interference and prevent route leaks.
-
-#### Listen only mode
-The FRR container is isolated in an individual network namespace and the **XDP OSPF filter** inspects all outgoing OSPF advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, OSPF Database description (DB) or LSUpdate will be dropped. It prevents the network from populating by unexpected network prefixes.  
 
 > [!NOTE]
 > ospfwatcher:v1.1 is compatible with [topolograph:v2.7](https://github.com/Vadims06/topolograph/releases/tag/v2.27)
@@ -412,6 +420,8 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
     - **State**: Session state (`Establ` = Established, `Idle`, `Connect`, `Active`, etc.)  
     - **#Received**: Number of routes received  
     - **Accepted**: Number of routes accepted  
+
+    > Run `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0` on the Linux host to allow GoBGP on port 179 if needed to start goBGP in passive mode.
 
 ##### Symptoms
 Dashboard page is blank. Events are not present on OSPF Monitoring page.
