@@ -10,7 +10,7 @@ topology:
       kind: bridge
     ospf-watcher:
       kind: linux
-      image: vadims06/ospf-watcher:v3.0.2
+      image: vadims06/ospf-watcher:latest
       network-mode: container:router1
       startup-delay: 50 # 30 sec gives only 3 routers
       stages:
