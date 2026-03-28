@@ -52,11 +52,11 @@ pipeline:
       match: watcher_logs
       host: ${WEBHOOK_HOST}
       port: ${WEBHOOK_PORT}
-      uri: /
+      uri: ${WEBHOOK_URI}
       format: json
-      json_date_key: "@timestamp"
+      json_date_key: false
       retry_limit: 3
-      tls: off
+      tls: ${WEBHOOK_TLS_ON}
 
     - name: stdout
       match: watcher_logs
