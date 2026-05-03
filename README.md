@@ -130,7 +130,60 @@ Set variables in `.env` file:
 > * `TEST_MODE` - if mode is `True`, a demo OSPF events from static file will be
 >   uploaded, not from FRR
 
-2. Setup OSPF Watcher
+## Watcher Heartbeats
+
+ospfwatcher can periodically POST a heartbeat to Topolograph so the UI displays all registered watchers with their liveness status (`up` / `stale` / `down`), independent of whether the network is producing topology events.
+
+### Prerequisites
+
+- Topolograph v3.x or later
+- One shared Topolograph user account per organisation (all watchers must use the same API token so they appear together in the UI)
+
+### Setup
+
+**Step 1 — Generate an API token in Topolograph**
+
+Log in to Topolograph → **Settings → API Tokens → Create token**. Copy the `sk-...` value.
+
+**Step 2 — Provision the watcher**
+
+When running `client.py --action add_watcher`, you will be prompted:
+
+```
+Topolograph API token (sk-..., leave empty to skip heartbeats):
+```
+
+Paste the `sk-...` token. It will be written to the watcher container's environment automatically.
+
+To add a token to an existing watcher, edit the watcher's `config.yml` and add `TOPOLOGRAPH_API_TOKEN: sk-...` under the `ospf-watcher` node's `env` block, then redeploy.
+
+**Step 3 — Verify**
+
+After the watcher starts, check Topolograph UI → **Watchers** tab. The watcher should appear with status `up` within one `HEARTBEAT_INTERVAL` (default: 60 seconds).
+
+### Status values
+
+| Status | Meaning |
+|--------|---------|
+| `up` | Last heartbeat received within `HEARTBEAT_INTERVAL × 3` seconds |
+| `stale` | Last heartbeat older than `× 3` but within `× 6` seconds |
+| `down` | No heartbeat for more than `× 6` seconds, or watcher never connected |
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TOPOLOGRAPH_API_TOKEN` | _(empty)_ | Bearer token from Topolograph UI. If empty, heartbeats are disabled. |
+| `HEARTBEAT_INTERVAL` | `60` | Seconds between heartbeats. |
+| `WATCHER_IP` | _(auto)_ | Override the watcher's reported source IP (`srcid`). Useful in containers where hostname resolution returns `127.0.1.1`. |
+
+### Multi-watcher organisations
+
+All watchers belonging to the same organisation should use the **same API token** (generated under one shared service account). This ensures all watchers appear together under `GET /api/v1/watcher/status` in the Topolograph UI.
+
+---
+
+**2. Setup OSPF Watcher**
 ```bash
 git clone https://github.com/Vadims06/ospfwatcher.git
 cd ospfwatcher

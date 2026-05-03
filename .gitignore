@@ -7,6 +7,7 @@ watcher/logs/.*json
 watcher/logs/.*igp.txt
 watcher/*
 !watcher/watcher-template/
+watcher/watcher-template/watcher.env
 clab-watcher*
 containerlab/ospf01/watcher
 containerlab/ospf01/clab-ospf01/

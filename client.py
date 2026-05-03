@@ -52,6 +52,7 @@ class WATCHER_CONFIG:
         self.protocol = protocol
         self.asn = 0
         self.organisation_name = ""
+        self.topolograph_api_token = ""
         self.watcher_name = ""
         self.enable_xdp: bool = False
         self.enable_topolograph: bool = False
@@ -299,6 +300,21 @@ class WATCHER_CONFIG:
             return str(ipaddress.ip_interface(self.gre_tunnel_ip_w_mask_network_device).network)
         return ""
 
+    def _existing_topolograph_api_token_from_template_env(self) -> str:
+        """Return TOPOLOGRAPH_API_TOKEN from watcher-template/watcher.env when non-empty (skip re-prompt)."""
+        path = os.path.join(self.watcher_template_path, "watcher.env")
+        if not os.path.isfile(path):
+            return ""
+        prefix = "TOPOLOGRAPH_API_TOKEN="
+        with open(path, encoding="utf-8") as fp:
+            for raw in fp:
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith(prefix):
+                    return line[len(prefix):].strip().strip('"').strip("'")
+        return ""
+
     @staticmethod
     def get_nth_elem_from_iter(iterator, number):
         while number > 0:
@@ -374,6 +390,7 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'AREA_NUM': self.ospf_area_num})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_INTERFACE': "veth1"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_LOGFILE': "/home/watcher/watcher/logs/watcher.log"})
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'TOPOLOGRAPH_API_TOKEN': self.topolograph_api_token})
         # Logrotation
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME]['image'] = self.LOGROTATION_IMAGE
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME].setdefault('binds', []).append(f"../logs/{self.watcher_log_file_name}:/logs/watcher.log")
@@ -519,6 +536,12 @@ class WATCHER_CONFIG:
         else:
             self.asn = asn_default
         self.organisation_name = str(input("Organisation name: ")).lower()
+        existing_token = self._existing_topolograph_api_token_from_template_env()
+        if existing_token:
+            self.topolograph_api_token = existing_token
+        else:
+            print("To enable heartbeats, generate an API token in Topolograph UI: Settings → API Tokens → Create token. Copy the sk-... value and paste it below.")
+            self.topolograph_api_token = str(input("Topolograph API token (sk-..., leave empty to skip heartbeats): ")).strip()
         self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "ospfwatcher-demo"
@@ -593,6 +616,12 @@ class WATCHER_CONFIG:
         if not self.asn and not self.asn.isdigit():
             self.asn = 0
         self.organisation_name = str(input("Organisation name: ")).lower()
+        existing_token = self._existing_topolograph_api_token_from_template_env()
+        if existing_token:
+            self.topolograph_api_token = existing_token
+        else:
+            print("To enable heartbeats, generate an API token in Topolograph UI: Settings → API Tokens → Create token. Copy the sk-... value and paste it below.")
+            self.topolograph_api_token = str(input("Topolograph API token (sk-..., leave empty to skip heartbeats): ")).strip()
         self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "ospfwatcher-demo"
@@ -729,6 +758,7 @@ class WATCHER_CONFIG:
             "ASN": self.asn,
             "WATCHER_NAME": self.watcher_name,
             "AREA_NUM": self.ospf_area_num,
+            "TOPOLOGRAPH_API_TOKEN": self.topolograph_api_token,
         }
         # Clean up stages that reference removed nodes
         stages = watcher_node.get("stages", {})
