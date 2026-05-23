@@ -40,6 +40,8 @@ services:
       EXPORT_TO_TOPOLOGRAPH_SOCKET: $EXPORT_TO_TOPOLOGRAPH_SOCKET
       TOPOLOGRAPH_HOST: $TOPOLOGRAPH_HOST
       TOPOLOGRAPH_PORT: $TOPOLOGRAPH_PORT
+      EXPORT_TO_LOKI_BOOL: $EXPORT_TO_LOKI_BOOL
+      LOKI_URL: $LOKI_URL
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9600"]
       interval: 5s
