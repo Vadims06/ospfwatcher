@@ -15,9 +15,9 @@ services:
         target: /usr/share/logstash/pipeline
         read_only: true
       - type: bind
-        # source: ./watcher/logs
+        source: ./watcher/logs
         # for containerlab integration
-        source: /home/ubuntu/ospfwatcher/containerlab/ospf01/watcher/logs
+        # source: /home/ubuntu/ospfwatcher/containerlab/ospf01/watcher/logs
         target: /home/watcher/watcher/logs
         read_only: true
     environment:
