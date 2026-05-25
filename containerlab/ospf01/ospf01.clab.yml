@@ -38,11 +38,6 @@ topology:
         AREA_NUM: 0.0.0.0
         WATCHER_NAME: ospfwatcher-demo
         WATCHER_INTERFACE: eth1
-        # Heartbeat to Topolograph: set in shell before `clab deploy` / integ-tests (Containerlab expands ${VAR})
-        # Example: export TOPOLOGRAPH_API_TOKEN=sk-... TOPOLOGY_WEBHOOK_URL=http://<host>:<port>/receiver/collect
-        TOPOLOGRAPH_API_TOKEN: ${TOPOLOGRAPH_API_TOKEN:-}
-        TOPOLOGY_WEBHOOK_URL: ${TOPOLOGY_WEBHOOK_URL:-}
-        HEARTBEAT_INTERVAL: ${HEARTBEAT_INTERVAL:-60}
       binds:
         - watcher/logs/watcher1.ospf.log:/home/watcher/watcher/logs/watcher.log
     router1:
