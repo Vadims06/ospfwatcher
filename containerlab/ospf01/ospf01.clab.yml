@@ -1,5 +1,10 @@
 name: ospf01
 
+mgmt:
+  network: ospf01-mgmt
+  ipv4-subnet: 172.21.20.0/24
+  ipv6-subnet: 3fff:172:21:20::/64
+
 topology:
   defaults:
     env-files:
