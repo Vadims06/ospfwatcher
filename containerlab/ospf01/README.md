@@ -169,4 +169,4 @@ sudo tail -f watcher/watcher.log
 
 
 Note:
-log file should have `systemd-network:systemd-journal` ownership
+`prepare.sh` creates `watcher/logs/` and the log file owned by the user that runs the lab.

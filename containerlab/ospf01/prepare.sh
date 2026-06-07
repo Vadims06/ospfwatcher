@@ -7,14 +7,22 @@ LAB_DIR="$(dirname "$0")"
 LOG_DIR="$LAB_DIR/watcher/logs"
 LOG_FILE="$LOG_DIR/watcher1.ospf.log"
 BRIDGE_NAME="br-dr"
-OWNER="systemd-network:systemd-journal"
+# Own the log dir/file as the host user that runs the lab, so the log can be
+# rotated/truncated on each run without a manual chmod. The watcher container runs
+# as root and can still write regardless of owner.
+OWNER="$(stat -c '%U:%G' "$LAB_DIR")"
 
 create_log_file() {
     mkdir -p "$LOG_DIR"
 
-    # Create or truncate the log file and set ownership
-    install -o "${OWNER%%:*}" -g "${OWNER##*:}" -m 777 /dev/null "$LOG_FILE"
-    echo "[$(date)] Log file initialized at $LOG_FILE"
+    # Dir must be writable by OWNER so the stale log can be removed on each run.
+    chown "$OWNER" "$LOG_DIR"
+    chmod 775 "$LOG_DIR"
+
+    # Create or truncate the log file owned by OWNER (group/other writable for the
+    # root-running container's bind-mount writes).
+    install -o "${OWNER%%:*}" -g "${OWNER##*:}" -m 664 /dev/null "$LOG_FILE"
+    echo "[$(date)] Log file initialized at $LOG_FILE (owner $OWNER)"
 }
 
 ensure_brctl_installed() {
