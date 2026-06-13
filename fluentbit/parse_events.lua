@@ -123,6 +123,31 @@ function parse_events(tag, timestamp, record)
                 ", new:" .. record["new_cost"] ..
                 ", detected by:" .. record["event_detected_by"]
         end
+    elseif record["event_name"] == "node" then
+        -- node,<rid>,changed,attr:<name>,old:<v>,new:<v>,<detected_by>,<graph_time>,<area>,<asn>[,<sesid>,<srcid>]
+        if #parts < 12 or (parts[9] or "") == "" then
+            return -1, 0, 0
+        end
+        record["attribute"]         = string.match(parts[6], "attr:(.+)") or parts[6]
+        record["old_value"]         = string.match(parts[7], "old:(.+)") or parts[7]
+        record["new_value"]         = string.match(parts[8], "new:(.+)") or parts[8]
+        record["event_detected_by"] = parts[9]
+        record["graph_time"]        = parts[10]
+        record["area_num"]          = parts[11]
+        record["asn"]               = parts[12]
+        if #parts >= 14 then
+            record["sesid"] = parts[13]
+            record["srcid"] = parts[14]
+        end
+
+        record["object_status"] = "changed"
+        record["metadata"] = record["metadata"] or {}
+        record["metadata"]["elasticsearch_index"] = "ospf-watcher-node-changes"
+        record["metadata"]["webhook_item_value"] =
+            "OSPF node " .. record["event_object"] .. " " ..
+            record["attribute"] .. " changed: " .. record["old_value"] ..
+            " -> " .. record["new_value"] ..
+            ", detected by:" .. record["event_detected_by"]
     elseif record["event_name"] == "temetric" then
         if #parts < 16 or (parts[11] or "") == "" then
             return -1, 0, 0
@@ -183,6 +208,12 @@ function parse_events(tag, timestamp, record)
                 ["new_cost"] = tonumber(record["new_cost"]) or -1,
                 ["type"]     = string.sub(record["subnet_type"] or "internal", 1, 32),
                 ["subtype"]  = tonumber(record["int_ext_subtype"]) or 0
+            }
+        elseif record["event_name"] == "node" then
+            ev["node"] = {
+                ["attribute"] = string.sub(record["attribute"] or "", 1, 64),
+                ["old_value"] = tonumber(record["old_value"]) or 0,
+                ["new_value"] = tonumber(record["new_value"]) or 0
             }
         elseif record["event_name"] == "temetric" then
             ev["temetric"] = {
