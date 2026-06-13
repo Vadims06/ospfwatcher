@@ -58,6 +58,17 @@ pipeline:
       retry_limit: 3
       tls: ${WEBHOOK_TLS_ON}
 
+    # Loki output: set LOKI_HOST/LOKI_PORT to enable (defaults point to a local Loki)
+    - name: loki
+      match: watcher_logs
+      host: ${LOKI_HOST}
+      port: ${LOKI_PORT}
+      labels: job=topolograph-ospf
+      label_keys: $event_name,$event_status,$area_num,$asn,$watcher_name
+      line_format: json
+      auto_kubernetes_labels: off
+      retry_limit: 3
+
     - name: stdout
       match: watcher_logs
       format: json

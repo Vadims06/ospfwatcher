@@ -83,6 +83,10 @@ If a subnet was removed from OSPF node (the node withdrew it from the announceme
 HTTP POST messages can be easily accepted by messengers, which allows to get instant notifications of OSPF topology changes:
 ![](docs/slack/slack_notification.PNG)
 
+## Push OSPF topology changes to Loki
+
+You can configure [Loki](https://grafana.com/oss/loki/) to receive topology changes. Edit `.env` and set `EXPORT_TO_LOKI_BOOL` and `LOKI_URL`.
+
 ## Quick lab
 #### Containerlab
 Here is a lab for tracking OSPF topology changes placed here **containerlab/frr01**. Watcher logs:  
