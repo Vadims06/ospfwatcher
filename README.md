@@ -15,6 +15,7 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
   * Maximum Reservable Link Bandwidth
   * Unreserved Bandwidth
   * Traffic Engineering Default Metric
+  * Shared Risk Link Group (SRLG)
 
 ## Architecture
 

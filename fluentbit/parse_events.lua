@@ -149,7 +149,7 @@ function parse_events(tag, timestamp, record)
             " -> " .. record["new_value"] ..
             ", detected by:" .. record["event_detected_by"]
     elseif record["event_name"] == "temetric" then
-        if #parts < 16 or (parts[11] or "") == "" then
+        if #parts < 17 or (parts[12] or "") == "" then
             return -1, 0, 0
         end
         record["admin_groups"]      = parts[6]
@@ -157,15 +157,16 @@ function parse_events(tag, timestamp, record)
         record["max_rsrv_link_bw"]  = parts[8]
         record["unreserved_bw"]     = parts[9]
         record["temetric_value"]    = parts[10]
-        record["event_detected_by"] = parts[11]
-        record["graph_time"]        = parts[12]
-        record["area_num"]          = parts[13]
-        record["asn"]               = parts[14]
-        record["local_ip_address"]  = parts[15]
-        record["remote_ip_address"] = parts[16]
-        if #parts >= 18 then
-            record["sesid"] = parts[17]
-            record["srcid"] = parts[18]
+        record["srlg"]              = parts[11]
+        record["event_detected_by"] = parts[12]
+        record["graph_time"]        = parts[13]
+        record["area_num"]          = parts[14]
+        record["asn"]               = parts[15]
+        record["local_ip_address"]  = parts[16]
+        record["remote_ip_address"] = parts[17]
+        if #parts >= 19 then
+            record["sesid"] = parts[18]
+            record["srcid"] = parts[19]
         end
 
         record["object_status"] = "changed"
@@ -222,6 +223,7 @@ function parse_events(tag, timestamp, record)
                 ["max_rsrv_link_bw"] = tonumber(record["max_rsrv_link_bw"]) or -1,
                 ["unreserved_bw"]    = string.sub(record["unreserved_bw"] or "", 1, 256),
                 ["temetric"]         = tonumber(record["temetric_value"]) or -1,
+                ["srlg"]             = string.sub(record["srlg"] or "", 1, 256),
                 ["local_ip_address"] = string.sub(record["local_ip_address"] or "", 1, 64),
                 ["remote_ip_address"]= string.sub(record["remote_ip_address"] or "", 1, 64)
             }

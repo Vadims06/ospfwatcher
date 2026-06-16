@@ -47,7 +47,7 @@ topology:
         - watcher/logs/watcher1.ospf.log:/home/watcher/watcher/logs/watcher.log
     router1:
       kind: linux
-      image: frrouting/frr:v8.4.1
+      image: vadims06/frr:v10.8_srlg
       ports:
         - 65001:2604
       binds:
@@ -55,7 +55,7 @@ topology:
         - router1/frr.conf:/etc/frr/frr.conf
     router2:
       kind: linux
-      image: frrouting/frr:v8.4.1
+      image: vadims06/frr:v10.8_srlg
       ports:
         - 65002:2604
       binds:
@@ -63,7 +63,7 @@ topology:
         - router2/frr.conf:/etc/frr/frr.conf
     router3:
       kind: linux
-      image: frrouting/frr:v8.4.1
+      image: vadims06/frr:v10.8_srlg
       ports:
         - 65003:2604
       binds:
@@ -71,7 +71,7 @@ topology:
         - router3/frr.conf:/etc/frr/frr.conf
     router4:
       kind: linux
-      image: frrouting/frr:v8.4.1
+      image: vadims06/frr:v10.8_srlg
       ports:
         - 65004:2604
       binds:
@@ -79,7 +79,7 @@ topology:
         - router4/frr.conf:/etc/frr/frr.conf
     router5:
       kind: linux
-      image: frrouting/frr:v8.4.1
+      image: vadims06/frr:v10.8_srlg
       ports:
         - 65005:2604
       binds:
@@ -87,7 +87,7 @@ topology:
         - router5/frr.conf:/etc/frr/frr.conf
     router6:
       kind: linux
-      image: frrouting/frr:v8.4.1
+      image: vadims06/frr:v10.8_srlg
       ports:
         - 65006:2604
       binds:
