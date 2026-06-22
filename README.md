@@ -9,6 +9,10 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 * OSPF neighbor adjacency Up/Down
 * OSPF link cost changes
 * OSPF networks appeared/disappeared from the topology
+* OSPF node attribute flags:
+  * ABR (Area Border Router)
+  * ASBR (AS Boundary Router)
+  * Max-metric / stub router (RFC 3137)
 * OSPF TE attributes (via Opaque LSA / BGP-LS):
   * Administrative Group (color, resource class)
   * Maximum Link Bandwidth
