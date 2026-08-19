@@ -5,6 +5,19 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 > Tracking OSPF topology changes via **BGP-LS** is **supported starting from Docker image `vadims06/ospf-watcher:v3.1.0`**.
 > For older images, BGP-LS support is not available.
 
+## Quick start
+1. On a Docker host, install Topolograph and the watcher compose files:
+
+    ```bash
+    curl -O https://raw.githubusercontent.com/Vadims06/topolograph-docker/master/install.sh
+    chmod +x install.sh
+    sudo ./install.sh
+    ```
+2. `cp .env.template .env`, then set `TOPOLOGRAPH_HOST` and `TOPOLOGRAPH_PORT` to the host IP (not `localhost`).
+3. Pick a deployment size in [How to connect OSPF watcher to real network](#how-to-connect-ospf-watcher-to-real-network).
+
+No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
+
 ## Logged topology changes:
 * OSPF neighbor adjacency Up/Down
 * OSPF link cost changes
