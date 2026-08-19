@@ -67,6 +67,8 @@ topology:
       image: vadims06/ospf-filter-xdp:latest
       startup-delay: 2
       network-mode: host
+      # one-shot node: it applies the XDP filter and exits, so it must not be restarted
+      restart-policy: "no"
       env:
         VTAP_HOST_INTERFACE: vhost1025
       stages:
