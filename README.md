@@ -163,6 +163,9 @@ Set variables in `.env` file:
 > * `TOPOLOGRAPH_WEB_API_USERNAME_EMAIL` - by default `ospf@topolograph.com` or
 >   put your recently created user
 > * `TOPOLOGRAPH_WEB_API_PASSWORD` - by default `ospf`
+> * Logstash and Fluent Bit send live events to Topolograph with this login and
+>   password; Topolograph rejects events without them (HTTP 401) and shows
+>   them only to this user
 > * `TEST_MODE` - if mode is `True`, a demo OSPF events from static file will be
 >   uploaded, not from FRR
 
