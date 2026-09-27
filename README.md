@@ -163,6 +163,9 @@ Set variables in `.env` file:
 > * `TOPOLOGRAPH_WEB_API_USERNAME_EMAIL` - by default `ospf@topolograph.com` or
 >   put your recently created user
 > * `TOPOLOGRAPH_WEB_API_PASSWORD` - by default `ospf`
+> * Logstash and Fluent Bit send live events to Topolograph with this login and
+>   password; Topolograph rejects events without them (HTTP 401) and shows
+>   them only to this user
 > * `TEST_MODE` - if mode is `True`, a demo OSPF events from static file will be
 >   uploaded, not from FRR
 
@@ -526,29 +529,12 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
     1. Uncomment `DEBUG_BOOL="True"` in `.env` and start continuous logs `docker logs -f logstash`.
     2. Copy and paste the log from the first step in watcher's log file  `./watcher/logs/watcher#-gre#-ospf.ospf.log`. `docker logs -f logstash` should print the output. If not - check logstash container.
   
-3. Check if logs are in Topolograph's DB. Connect to mongoDB and run:
+3. Check that Topolograph stored the event: `docker logs logstash` shows no `401` or `403`, and the events API returns it:
     ```
-    docker exec -it mongodb /bin/bash
-    ```  
-    Inside container (change):  
+    curl -u "$TOPOLOGRAPH_WEB_API_USERNAME_EMAIL:$TOPOLOGRAPH_WEB_API_PASSWORD" \
+      "http://$TOPOLOGRAPH_HOST:$TOPOLOGRAPH_PORT/api/events/<graph_time>/adjacency"
     ```
-    mongo mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb:27017/admin?gssapiServiceName=mongodb
-    use admin
-    ```
-    1. Check the last two/N records in adjacency changes (`ospf_neighbor_up_down`) or cost changes (`ospf_link_cost_change`)
-    ```
-    db.ospf_neighbor_up_down.find({}).sort({_id: -1}).limit(2)
-    db.ospf_link_cost_change.find({}).sort({_id: -1}).limit(2)
-    ```
-    Sample output:   
-    ```
-    { "_id" : ObjectId("67a9ecfe112225e8df6000001"), "graph_time" : "01Jan2023_00h00m00s_7_hosts", "path" : "/home/watcher/watcher/logs/watcher1-gre1-ospf.ospf.log", "area_num" : "0.0.0.1", "event_name" : "metric", 
-    ```
-
-> [!NOTE]
-> If you see a single event in `docker logs logstash` it means that mongoDB
-> output is blocked, check if you have a connection to MongoDB
-> `docker exec -it logstash curl -v mongodb:27017`
+    `401` means a wrong login or password in `.env`; `403` means the event's `graph_time` is not a graph uploaded by this user.
 
    ii. Check that `graph_time` is **not** empty. If so, check that you can login on the Topolograph page [`Login/Local Login`] using credentials defined in `.env` and your local network is added in `API/Authorised source IP ranges`. Usually, `10.0.0.0/8`, `172.16.0.0/12` ,`192.168.0.0/16` is enought.
 
