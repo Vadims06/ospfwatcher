@@ -193,6 +193,7 @@ function parse_events(tag, timestamp, record)
             ["event_detected_by"]= string.sub(record["event_detected_by"] or "", 1, 64),
             ["area_num"]         = string.sub(record["area_num"] or "", 1, 32),
             ["asn"]              = string.sub(record["asn"] or "", 1, 32),
+            ["graph_time"]       = string.sub(record["graph_time"] or "", 1, 64),
             ["sesid"]            = string.sub(record["sesid"] or "", 1, 64),
             ["srcid"]            = string.sub(record["srcid"] or "", 1, 64)
         }
