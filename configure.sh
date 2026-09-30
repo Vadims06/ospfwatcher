@@ -86,6 +86,12 @@ for watcher_token in "${tokens[@]}"; do
     esac
 done
 
+if grep -qs '"connection_mode": *"gre"' "$answers_dir"/*.json; then
+    for tool in iptables conntrack; do
+        command -v "$tool" >/dev/null 2>&1 || { echo "Install or fix first: $tool, needed by GRE mode" >&2; exit 1; }
+    done
+fi
+
 [ -e .env ] || cp .env.template .env
 [ -z "$(tail -c1 .env)" ] || echo >> .env
 set_env() {

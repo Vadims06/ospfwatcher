@@ -43,6 +43,8 @@ class WATCHER_CONFIG:
         WATCHER_NODE_NAME: "vadims06/ospf-watcher:{version}",
         BGPLSWATCHER_NODE_NAME: "vadims06/bgplswatcher:v1.0.4",
         LOGROTATION_NODE_NAME: LOGROTATION_IMAGE,
+        ROUTER_NODE_NAME: "vadims06/frr:v8.5.4",
+        OSPF_FILTER_NODE_NAME: "vadims06/ospf-filter-xdp:v1",
     }
     FLUENT_BIT_WATCHERS_FOLDER = os.path.join("fluentbit", "watchers")
 

@@ -5,11 +5,27 @@
   "install_dir": "/opt/topolograph/ospfwatcher",
   "host_requirements": [
     "Linux host with Docker, Docker Compose v2 and containerlab",
-    "git, curl and systemd",
+    "git, curl and systemd; iptables and conntrack for GRE",
     "sudo",
     "Access to Topolograph over HTTP(S)"
   ],
   "modes": [
+    {
+      "id": "gre",
+      "title": "GRE",
+      "description": "The watcher forms an OSPF adjacency with one network device over a GRE tunnel and only listens: an XDP filter can drop anything it would advertise beyond the tunnel network.",
+      "router_requirements": [
+        "GRE tunnel to the watcher host IP",
+        "OSPF on the tunnel, point-to-point, MTU 1476"
+      ],
+      "diagram_svg": "<svg xmlns='http://www.w3.org/2000/svg' width='660' height='190' font-family='sans-serif' font-size='13'><rect x='10' y='30' width='230' height='130' rx='6' fill='#eaf7ea' stroke='#3a9a3a'/><text x='125' y='52' text-anchor='middle'>Watcher host, IP (6)</text><text x='125' y='80' text-anchor='middle' font-size='11'>FRR in its own netns</text><text x='125' y='100' text-anchor='middle' font-size='11'>tunnel (4), tunnel IP (3)</text><text x='125' y='120' text-anchor='middle' font-size='11'>OSPF area (5), listen only</text><rect x='420' y='30' width='230' height='130' rx='6' fill='#e8f1fb' stroke='#3b7dd8'/><text x='535' y='52' text-anchor='middle'>Network device, IP (1)</text><text x='535' y='90' text-anchor='middle' font-size='11'>tunnel (4), tunnel IP (2)</text><text x='535' y='110' text-anchor='middle' font-size='11'>OSPF area (5)</text><line x1='240' y1='95' x2='420' y2='95' stroke='#333' stroke-dasharray='6,4'/><text x='330' y='85' text-anchor='middle' font-size='11'>GRE, OSPF adjacency</text></svg>",
+      "router_examples": [
+        {
+          "vendor": "Cisco IOS-XR",
+          "config": "interface tunnel-ip{gre_tunnel_number}\n ipv4 address {gre_tunnel_ip_w_mask_network_device}\n tunnel source {gre_tunnel_network_device_ip}\n tunnel destination {host_interface_device_ip}\n!\nrouter ospf 1\n area {ospf_area_num}\n  interface tunnel-ip{gre_tunnel_number}\n   network point-to-point"
+        }
+      ]
+    },
     {
       "id": "bgpls",
       "title": "BGP-LS",
@@ -70,11 +86,73 @@
       ]
     },
     {
+      "id": "gre_tunnel_network_device_ip",
+      "label": "Network device IP, tunnel source on the device",
+      "diagram_label": "1",
+      "type": "ip",
+      "source": "user",
+      "modes": [
+        "gre"
+      ]
+    },
+    {
+      "id": "gre_tunnel_ip_w_mask_network_device",
+      "label": "GRE tunnel IP on the network device, with mask",
+      "diagram_label": "2",
+      "type": "ip_interface",
+      "source": "user",
+      "modes": [
+        "gre"
+      ]
+    },
+    {
+      "id": "gre_tunnel_ip_w_mask_watcher",
+      "label": "GRE tunnel IP on the watcher, with mask, same subnet",
+      "diagram_label": "3",
+      "type": "ip_interface",
+      "source": "user",
+      "modes": [
+        "gre"
+      ]
+    },
+    {
+      "id": "gre_tunnel_number",
+      "label": "GRE tunnel number",
+      "diagram_label": "4",
+      "type": "integer",
+      "source": "user",
+      "min": 1,
+      "max": 65535,
+      "modes": [
+        "gre"
+      ]
+    },
+    {
       "id": "ospf_area_num",
       "label": "OSPF area",
       "diagram_label": "5",
       "type": "ospf_area",
       "source": "user"
+    },
+    {
+      "id": "host_interface_device_ip",
+      "label": "Watcher host IP, tunnel destination on the device",
+      "diagram_label": "6",
+      "type": "ip",
+      "source": "user",
+      "modes": [
+        "gre"
+      ]
+    },
+    {
+      "id": "enable_xdp",
+      "label": "XDP filter: drop anything the watcher would advertise beyond the tunnel network",
+      "type": "boolean",
+      "source": "default",
+      "default": false,
+      "modes": [
+        "gre"
+      ]
     },
     {
       "id": "bgpls_passive_mode",
