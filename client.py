@@ -343,6 +343,14 @@ class WATCHER_CONFIG:
     def is_network_the_same(ip_address_w_mask_1, ip_address_w_mask_2):
         return ipaddress.ip_interface(ip_address_w_mask_1).network == ipaddress.ip_interface(ip_address_w_mask_2).network
 
+    def get_gre_endpoints_error(self) -> str:
+        """Why the two tunnel ends cannot form an adjacency; empty when they can."""
+        if not self.is_network_the_same(self.gre_tunnel_ip_w_mask_network_device, self.gre_tunnel_ip_w_mask_watcher):
+            return "Tunnel's network doesn't match"
+        if self.gre_tunnel_ip_w_mask_network_device == self.gre_tunnel_ip_w_mask_watcher:
+            return "Tunnel' IP addresses must be different on endpoints"
+        return ""
+
     def create_folder_with_settings(self):
         if self.connection_mode == "bgpls":
             self.create_folder_with_settings_bgpls()
@@ -594,11 +602,8 @@ class WATCHER_CONFIG:
             elif self._get_digit_net_mask(self.gre_tunnel_ip_w_mask_watcher) == 32:
                 print("Please provide non /32 subnet for tunnel network")
                 self.gre_tunnel_ip_w_mask_watcher = ""
-            elif not self.is_network_the_same(self.gre_tunnel_ip_w_mask_network_device, self.gre_tunnel_ip_w_mask_watcher):
-                print("Tunnel's network doesn't match")
-                self.gre_tunnel_ip_w_mask_watcher = ""
-            elif self.gre_tunnel_ip_w_mask_network_device == self.gre_tunnel_ip_w_mask_watcher:
-                print("Tunnel' IP addresses must be different on endpoints")
+            elif self.get_gre_endpoints_error():
+                print(self.get_gre_endpoints_error())
                 self.gre_tunnel_ip_w_mask_watcher = ""
         while not self.gre_tunnel_number:
             self.gre_tunnel_number = input("[4]GRE Tunnel number: ")
@@ -843,6 +848,8 @@ class WATCHER_CONFIG:
                 value = int(value)
             setattr(self, key, value)
         self.ospf_area_num = self.do_check_area_num(str(self.ospf_area_num))
+        if self.connection_mode == "gre" and self.get_gre_endpoints_error():
+            raise ValueError(self.get_gre_endpoints_error())
         server = config["server"]
         self.watcher_name = server["watcher_name"]
         self.topolograph_api_token = server["watcher_token"]
