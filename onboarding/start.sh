@@ -6,7 +6,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 
 status=0
-for config in watcher/watcher*/config.yml; do
+for config in watcher/watcher[0-9]*/config.yml; do
     [ -e "$config" ] || continue
     containerlab deploy --reconfigure -t "$config" || status=1
 done

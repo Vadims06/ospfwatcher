@@ -37,7 +37,7 @@ if [ ${#missing[@]} -gt 0 ]; then
 fi
 
 unregistered=()
-for config in watcher/watcher*/config.yml; do
+for config in watcher/watcher[0-9]*/config.yml; do
     [ -e "$config" ] || continue
     grep -q "watcher_id:" "$config" || unregistered+=("$(dirname "$config")")
 done
@@ -58,7 +58,7 @@ trap 'rm -rf "$checkout/$answers_dir"' EXIT
 
 # The new watcher first, then every watcher already here, each with its own token.
 tokens=("$token")
-for config in watcher/watcher*/config.yml; do
+for config in watcher/watcher[0-9]*/config.yml; do
     [ -e "$config" ] || continue
     sibling=$(grep -o "TOPOLOGRAPH_API_TOKEN: wt-[A-Za-z0-9]*" "$config" | head -1 | cut -d' ' -f2)
     [ -n "$sibling" ] && [ "$sibling" != "$token" ] && tokens+=("$sibling")
