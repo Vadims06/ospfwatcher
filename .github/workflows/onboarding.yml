@@ -1,0 +1,36 @@
+name: Onboarding contract
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+    tags: ["v*"]
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Manifest is valid JSON
+        run: python3 -m json.tool onboarding/manifest.json > /dev/null
+      - name: Manifest, compose file and VERSION agree
+        run: python3 onboarding/check_contract.py "${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}"
+      - name: configure.sh parses
+        run: bash -n configure.sh
+
+  # Topolograph validates the manifest against its meta-schema in the PR this opens.
+  notify-topolograph:
+    needs: contract
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask Topolograph to pick up this release
+        env:
+          DISPATCH_TOKEN: ${{ secrets.TOPOLOGRAPH_DISPATCH_TOKEN }}
+        if: env.DISPATCH_TOKEN != ''
+        run: |
+          curl -sSf -X POST \
+            -H "Authorization: Bearer $DISPATCH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/Vadims06/flask-visual/dispatches \
+            -d "{\"event_type\":\"watcher-release\",\"client_payload\":{\"watcher_type\":\"ospf\",\"repo\":\"${{ github.repository }}\",\"ref\":\"${{ github.ref_name }}\"}}"

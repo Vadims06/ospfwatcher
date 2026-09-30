@@ -2,6 +2,7 @@ import argparse
 import copy
 import enum
 import ipaddress
+import json
 import os
 import re
 import shutil
@@ -37,6 +38,13 @@ class WATCHER_CONFIG:
     LOGROTATION_IMAGE = "vadims06/docker-logrotate:v1.0.0"
     BGPLSWATCHER_NODE_NAME = "bgplswatcher"
     BGPLSWATCHER_IMAGE = "vadims06/bgplswatcher:latest"
+    # Images a watcher installed from Topolograph pins; the watcher image follows the VERSION file.
+    PINNED_IMAGES = {
+        WATCHER_NODE_NAME: "vadims06/ospf-watcher:{version}",
+        BGPLSWATCHER_NODE_NAME: "vadims06/bgplswatcher:v1.0.4",
+        LOGROTATION_NODE_NAME: LOGROTATION_IMAGE,
+    }
+    FLUENT_BIT_WATCHERS_FOLDER = os.path.join("fluentbit", "watchers")
 
     def __init__(self, watcher_num, protocol="ospf"):
         self.watcher_num = watcher_num
@@ -775,6 +783,95 @@ class WATCHER_CONFIG:
         )
         self._do_save_watcher_config_file(watcher_config_yml)
 
+    @staticmethod
+    def get_folder_by_watcher_id(watcher_id):
+        """The folder a previous configure.sh run created for this Topolograph watcher, if any."""
+        root = os.path.join(os.getcwd(), WATCHER_CONFIG.WATCHER_ROOT_FOLDER)
+        for folder_name in WATCHER_CONFIG.get_existed_watchers():
+            config_path = os.path.join(root, folder_name, WATCHER_CONFIG.WATCHER_CONFIG_FILE)
+            if not os.path.exists(config_path):
+                continue
+            with open(config_path) as f:
+                labels = (ruamel_yaml_default_mode.load(f) or {}).get('topology', {}).get('defaults', {}).get('labels', {})
+            if labels.get('watcher_id') == watcher_id:
+                return folder_name
+        return ""
+
+    def add_watcher_from_answers(self, answers_path):
+        """Build the watcher from the configuration Topolograph returns for a watcher token, without questions."""
+        with open(answers_path) as f:
+            config = json.load(f)
+        existing_folder = self.get_folder_by_watcher_id(config["watcher_id"])
+        if existing_folder:
+            self.watcher_num = int(re.match(r"watcher(\d+)-", existing_folder).group(1))
+            shutil.rmtree(os.path.join(self.watcher_root_folder_path, existing_folder))
+        self.connection_mode = config["connection_mode"]
+        for key, value in config["answers"].items():
+            if not hasattr(self, key):
+                continue
+            default = getattr(self, key)
+            if isinstance(default, bool):
+                value = str(value).lower() == "true"
+            elif isinstance(default, int):
+                value = int(value)
+            setattr(self, key, value)
+        self.ospf_area_num = self.do_check_area_num(str(self.ospf_area_num))
+        server = config["server"]
+        self.watcher_name = server["watcher_name"]
+        self.topolograph_api_token = server["watcher_token"]
+        self.enable_topolograph = True
+        if self.connection_mode == "bgpls":
+            self.bgpls_grpc_port = 50200 + self.watcher_num
+            self.bgpls_ebgp_multihop = self.bgpls_router_as != self.bgpls_watcher_as
+        self.create_folder_with_settings()
+        self._pin_answers_config(config["watcher_id"], server)
+        self._write_fluent_bit_output(server)
+        print(f"Watcher {self.watcher_name} is configured in {self.watcher_folder_name}")
+
+    def _pin_answers_config(self, watcher_id, server):
+        """Pin images to this checkout's version and point the watcher at Topolograph with its own token."""
+        with open("VERSION") as f:
+            version = f.read().strip()
+        registry_prefix = os.getenv("REGISTRY_PREFIX", "")
+        config_yml = self.watcher_config_file_yml
+        config_yml['topology']['defaults']['labels']['watcher_id'] = watcher_id
+        for node_name, node in config_yml['topology']['nodes'].items():
+            if node_name in self.PINNED_IMAGES:
+                node['image'] = registry_prefix + self.PINNED_IMAGES[node_name].format(version=version)
+        config_yml['topology']['nodes'][self.WATCHER_NODE_NAME].setdefault('env', {}).update({
+            'TOPOLOGRAPH_HOST': server["topolograph_host"],
+            'TOPOLOGRAPH_PORT': server["topolograph_port"],
+            'TOPOLOGRAPH_API_TOKEN': server["watcher_token"],
+            # Empty login makes the watcher sign in with its token
+            'TOPOLOGRAPH_WEB_API_USERNAME_EMAIL': "",
+            'TOPOLOGRAPH_WEB_API_PASSWORD': "",
+        })
+        self._do_save_watcher_config_file(config_yml)
+
+    def _write_fluent_bit_output(self, server):
+        """One Fluent Bit input and output per watcher, so each sends its events with its own token."""
+        os.makedirs(self.FLUENT_BIT_WATCHERS_FOLDER, exist_ok=True)
+        tag = f"onboarding.{self.watcher_folder_name}"
+        fluent_bit_config = {'pipeline': {
+            'inputs': [{
+                'name': 'tail', 'tag': tag,
+                'path': f"/home/watcher/watcher/logs/{self.watcher_log_file_name}",
+                'read_from_head': False, 'refresh_interval': 1, 'rotate_wait': 1,
+                'mem_buf_limit': '50MB', 'skip_long_lines': 'on',
+            }],
+            'outputs': [{
+                'name': 'http', 'match': tag,
+                'host': server["topolograph_host"], 'port': int(server["topolograph_port"]),
+                'uri': '/websocket', 'format': 'json', 'json_date_key': '@timestamp', 'retry_limit': 3,
+                'tls': server["topolograph_tls"],
+                'header': f"Authorization Bearer {server['watcher_token']}",
+            }],
+        }}
+        path = os.path.join(self.FLUENT_BIT_WATCHERS_FOLDER, f"{self.watcher_folder_name}.yaml")
+        with open(path, "w") as f:
+            ruamel_yaml_default_mode.dump(fluent_bit_config, f)
+        os.chmod(path, 0o600)
+
     @classmethod
     def parse_command_args(cls, args):
         allowed_actions = [actions.value for actions in ACTIONS]
@@ -782,6 +879,10 @@ class WATCHER_CONFIG:
             raise ValueError(f"Not allowed action. Supported actions: {', '.join(allowed_actions)}")
         watcher_num = args.watcher_num if args.watcher_num else cls.gen_next_free_number()
         watcher_obj = cls(watcher_num)
+        if args.answers:
+            if args.action != ACTIONS.ADD_WATCHER.value:
+                raise ValueError("--answers works with --action add_watcher only")
+            return watcher_obj.add_watcher_from_answers(args.answers)
         watcher_obj.run_command(args.action)
 
     def run_command(self, action):
@@ -881,6 +982,10 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         "--watcher_num", required=False, default=0, type=int, help="Number of watcher"
+    )
+    parser.add_argument(
+        "--answers", required=False, default="",
+        help="Configuration JSON from Topolograph (GET /api/watcher/config); add_watcher runs without questions"
     )
     
     args = parser.parse_args()
