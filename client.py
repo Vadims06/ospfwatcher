@@ -813,9 +813,25 @@ class WATCHER_CONFIG:
         with open(answers_path) as f:
             config = json.load(f)
         existing_folder = self.get_folder_by_watcher_id(config["watcher_id"])
+        backup_path = ""
         if existing_folder:
             self.watcher_num = int(re.match(r"watcher(\d+)-", existing_folder).group(1))
-            shutil.rmtree(os.path.join(self.watcher_root_folder_path, existing_folder))
+            # Kept until the rebuild succeeds, so a failed one leaves the working watcher in place
+            backup_path = os.path.join(self.watcher_root_folder_path, f".{existing_folder}.previous")
+            shutil.rmtree(backup_path, ignore_errors=True)
+            os.rename(os.path.join(self.watcher_root_folder_path, existing_folder), backup_path)
+        try:
+            self._build_from_answers(config)
+        # BaseException too: Ctrl-C must not leave the watcher only in its backup
+        except BaseException:
+            shutil.rmtree(self.watcher_folder_path, ignore_errors=True)
+            if backup_path:
+                os.rename(backup_path, os.path.join(self.watcher_root_folder_path, existing_folder))
+            raise
+        if backup_path:
+            shutil.rmtree(backup_path)
+
+    def _build_from_answers(self, config):
         self.connection_mode = config["connection_mode"]
         for key, value in config["answers"].items():
             if not hasattr(self, key):

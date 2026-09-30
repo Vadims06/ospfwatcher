@@ -12,8 +12,7 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
     ```bash
     # 1. Download
     [ -d /opt/topolograph/ospfwatcher ] || sudo git clone https://github.com/Vadims06/ospfwatcher /opt/topolograph/ospfwatcher
-    cd /opt/topolograph/ospfwatcher
-    sudo git fetch --tags origin <version> && sudo git checkout --detach FETCH_HEAD
+    cd /opt/topolograph/ospfwatcher && sudo git fetch --tags origin <version> && sudo git checkout --detach FETCH_HEAD
     # 2. Configure and run
     sudo ./configure.sh --url <topolograph-url> --token <watcher-token>
     ```
