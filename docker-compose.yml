@@ -50,7 +50,7 @@ services:
       - topolograph_backend
   
   ospf-logstash-index-creator:
-    image: ${REGISTRY_PREFIX:-}vadims06/ospf-watcher:${WATCHER_VERSION}
+    image: ${REGISTRY_PREFIX:-}vadims06/ospf-watcher:${WATCHER_VERSION:-v3.4.0}
     container_name: ospf-logstash-index-creator
     volumes:
       - type: bind
@@ -83,6 +83,9 @@ services:
         source: ./watcher/logs
         target: /home/watcher/watcher/logs
         read_only: true
+      - type: volume
+        source: fluent-bit-state
+        target: /fluent-bit/state
     environment:
       TOPOLOGRAPH_HOST: ${TOPOLOGRAPH_HOST:-localhost}
       TOPOLOGRAPH_PORT: ${TOPOLOGRAPH_PORT:-8080}
@@ -92,6 +95,9 @@ services:
       WEBHOOK_PORT: ${WEBHOOK_PORT:-9090}
       WEBHOOK_URI: ${WEBHOOK_URI:-/}
       WEBHOOK_TLS_ON: ${WEBHOOK_TLS_ON:-off}
+
+volumes:
+  fluent-bit-state:
 
 networks:
   topolograph_backend:

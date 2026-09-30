@@ -123,10 +123,25 @@ set_env TOPOLOGRAPH_WEB_API_PASSWORD ""
 registry_prefix=$(grep "^REGISTRY_PREFIX=" .env | cut -d= -f2- || true)
 image="${registry_prefix}vadims06/ospf-watcher:${version}"
 
+# A rebuild can rename a watcher's folder, so every old topology and Fluent Bit
+# input goes first; the service below deploys all watchers again.
+docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image"
+for config in watcher/watcher[0-9]*/config.yml; do
+    [ -e "$config" ] || continue
+    containerlab destroy -t "$config" >/dev/null 2>&1 || true
+done
+
+# One watcher that fails to build must not keep the others down
+failed=0
 for answer in "$answers_dir"/*.json; do
     docker run --rm --user 0:0 -e REGISTRY_PREFIX="$registry_prefix" \
         -v "$checkout":/home/watcher/watcher -w /home/watcher/watcher \
-        --entrypoint python3 "$image" client.py --action add_watcher --answers "$answer"
+        --entrypoint python3 "$image" client.py --action add_watcher --answers "$answer" || failed=1
+done
+# Inputs of folders a rebuild renamed
+for input in fluentbit/watchers/*.yaml; do
+    [ -e "$input" ] || continue
+    [ -d "watcher/$(basename "$input" .yaml)" ] || rm -f "$input"
 done
 
 unit=/etc/systemd/system/topolograph-ospfwatcher.service
@@ -136,5 +151,6 @@ systemctl enable topolograph-ospfwatcher.service >/dev/null
 echo "Starting the watchers of $checkout"
 systemctl restart topolograph-ospfwatcher.service
 
+[ "$failed" -eq 0 ] || { echo "Some watchers failed to build, see the errors above." >&2; exit 1; }
 echo
 echo "OSPF Watcher is running. Configure the router as the watcher page shows and follow the status in Topolograph."

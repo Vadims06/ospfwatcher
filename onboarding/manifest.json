@@ -79,7 +79,7 @@
       "id": "bgpls_router_id",
       "label": "Watcher router-id",
       "diagram_label": "4",
-      "type": "ip",
+      "type": "ipv4",
       "source": "user",
       "modes": [
         "bgpls"
@@ -196,7 +196,7 @@
   "commands": [
     {
       "title": "Download",
-      "text": "[ -d {install_dir} ] || sudo git clone --branch {ref} {repo_url} {install_dir}\ncd {install_dir}"
+      "text": "[ -d {install_dir} ] || sudo git clone {repo_url} {install_dir}\ncd {install_dir}\nsudo git fetch --tags origin {ref} && sudo git checkout --detach FETCH_HEAD"
     },
     {
       "title": "Configure and run",
