@@ -89,7 +89,7 @@
       "id": "gre_tunnel_network_device_ip",
       "label": "Network device IP, tunnel source on the device",
       "diagram_label": "1",
-      "type": "ip",
+      "type": "ipv4",
       "source": "user",
       "modes": [
         "gre"
@@ -138,7 +138,7 @@
       "id": "host_interface_device_ip",
       "label": "Watcher host IP, tunnel destination on the device",
       "diagram_label": "6",
-      "type": "ip",
+      "type": "ipv4",
       "source": "user",
       "modes": [
         "gre"
