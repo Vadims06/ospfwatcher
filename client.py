@@ -25,6 +25,13 @@ class ACTIONS(enum.Enum):
     DISABLE_XDP = "disable_xdp"
 
 
+def open_private(path):
+    """Files holding a watcher token stay root-only from their first byte."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    return open(fd, "w")
+
+
 class WATCHER_CONFIG:
     P2P_VETH_SUPERNET_W_MASK = "169.254.0.0/16"
     WATCHER_ROOT_FOLDER = "watcher"
@@ -43,6 +50,8 @@ class WATCHER_CONFIG:
         WATCHER_NODE_NAME: "vadims06/ospf-watcher:{version}",
         BGPLSWATCHER_NODE_NAME: "vadims06/bgplswatcher:v1.0.4",
         LOGROTATION_NODE_NAME: LOGROTATION_IMAGE,
+        ROUTER_NODE_NAME: "vadims06/frr:v8.5.4",
+        OSPF_FILTER_NODE_NAME: "vadims06/ospf-filter-xdp:v1",
     }
     FLUENT_BIT_WATCHERS_FOLDER = os.path.join("fluentbit", "watchers")
 
@@ -346,7 +355,8 @@ class WATCHER_CONFIG:
         if not os.path.exists(watcher_logs_folder_path):
             os.mkdir(watcher_logs_folder_path)
         # create file
-        with open(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 'w') as fp:
+        # Append mode: a rebuilt watcher keeps its event history
+        with open(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 'a') as fp:
             pass
         os.chmod(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 0o755)
         # router folder inside watcher
@@ -417,7 +427,7 @@ class WATCHER_CONFIG:
         self._do_save_watcher_config_file(watcher_config_yml)
 
     def _do_save_watcher_config_file(self, _config):
-        with open(self.watcher_config_file_path, "w") as f:
+        with open_private(self.watcher_config_file_path) as f:
             s = StringIO()
             ruamel_yaml_default_mode.dump(_config, s)
             f.write(s.getvalue())
@@ -703,7 +713,8 @@ class WATCHER_CONFIG:
         if not os.path.exists(watcher_logs_folder_path):
             os.mkdir(watcher_logs_folder_path)
         # Create log file
-        with open(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 'w') as fp:
+        # Append mode: a rebuilt watcher keeps its event history
+        with open(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 'a') as fp:
             pass
         os.chmod(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 0o755)
         # bgplswatcher folder
@@ -802,9 +813,25 @@ class WATCHER_CONFIG:
         with open(answers_path) as f:
             config = json.load(f)
         existing_folder = self.get_folder_by_watcher_id(config["watcher_id"])
+        backup_path = ""
         if existing_folder:
             self.watcher_num = int(re.match(r"watcher(\d+)-", existing_folder).group(1))
-            shutil.rmtree(os.path.join(self.watcher_root_folder_path, existing_folder))
+            # Kept until the rebuild succeeds, so a failed one leaves the working watcher in place
+            backup_path = os.path.join(self.watcher_root_folder_path, f".{existing_folder}.previous")
+            shutil.rmtree(backup_path, ignore_errors=True)
+            os.rename(os.path.join(self.watcher_root_folder_path, existing_folder), backup_path)
+        try:
+            self._build_from_answers(config)
+        # BaseException too: Ctrl-C must not leave the watcher only in its backup
+        except BaseException:
+            shutil.rmtree(self.watcher_folder_path, ignore_errors=True)
+            if backup_path:
+                os.rename(backup_path, os.path.join(self.watcher_root_folder_path, existing_folder))
+            raise
+        if backup_path:
+            shutil.rmtree(backup_path)
+
+    def _build_from_answers(self, config):
         self.connection_mode = config["connection_mode"]
         for key, value in config["answers"].items():
             if not hasattr(self, key):
@@ -856,6 +883,8 @@ class WATCHER_CONFIG:
             'inputs': [{
                 'name': 'tail', 'tag': tag,
                 'path': f"/home/watcher/watcher/logs/{self.watcher_log_file_name}",
+                # Offsets survive a restart; start.sh starts Fluent Bit before the watchers write
+                'db': f"/fluent-bit/state/{self.watcher_folder_name}.db",
                 'read_from_head': False, 'refresh_interval': 1, 'rotate_wait': 1,
                 'mem_buf_limit': '50MB', 'skip_long_lines': 'on',
             }],
@@ -868,9 +897,8 @@ class WATCHER_CONFIG:
             }],
         }}
         path = os.path.join(self.FLUENT_BIT_WATCHERS_FOLDER, f"{self.watcher_folder_name}.yaml")
-        with open(path, "w") as f:
+        with open_private(path) as f:
             ruamel_yaml_default_mode.dump(fluent_bit_config, f)
-        os.chmod(path, 0o600)
 
     @classmethod
     def parse_command_args(cls, args):
