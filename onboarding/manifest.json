@@ -196,7 +196,7 @@
   "commands": [
     {
       "title": "Download",
-      "text": "sudo git clone --branch {ref} {repo_url} {install_dir}\ncd {install_dir}"
+      "text": "[ -d {install_dir} ] || sudo git clone --branch {ref} {repo_url} {install_dir}\ncd {install_dir}"
     },
     {
       "title": "Configure and run",
