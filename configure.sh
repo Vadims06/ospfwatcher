@@ -87,6 +87,7 @@ for watcher_token in "${tokens[@]}"; do
 done
 
 [ -e .env ] || cp .env.template .env
+[ -z "$(tail -c1 .env)" ] || echo >> .env
 set_env() {
     grep -q "^$1=" .env && sed -i "s|^$1=.*|$1=$2|" .env || echo "$1=$2" >> .env
 }
