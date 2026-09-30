@@ -50,7 +50,7 @@ services:
       - topolograph_backend
   
   ospf-logstash-index-creator:
-    image: vadims06/ospf-watcher:latest
+    image: ${REGISTRY_PREFIX:-}vadims06/ospf-watcher:${WATCHER_VERSION}
     container_name: ospf-logstash-index-creator
     volumes:
       - type: bind
@@ -67,9 +67,11 @@ services:
       - topolograph_backend
 
   fluent-bit:
-    image: fluent/fluent-bit:3.2
+    image: ${REGISTRY_PREFIX:-}fluent/fluent-bit:3.2
     container_name: ospf-fluent-bit
-    command: ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.yaml"]
+    # onboarding.yaml when installed from Topolograph's Watchers page
+    command: ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/${FLUENT_BIT_CONFIG:-fluent-bit.yaml}"]
+    restart: unless-stopped
     profiles:
       - fluent-bit
     volumes:
@@ -90,8 +92,6 @@ services:
       WEBHOOK_PORT: ${WEBHOOK_PORT:-9090}
       WEBHOOK_URI: ${WEBHOOK_URI:-/}
       WEBHOOK_TLS_ON: ${WEBHOOK_TLS_ON:-off}
-    networks:
-      - topolograph_backend
 
 networks:
   topolograph_backend:

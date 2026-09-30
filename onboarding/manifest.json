@@ -1,0 +1,128 @@
+{
+  "watcher_type": "ospf",
+  "title": "OSPF Watcher",
+  "repo_url": "https://github.com/Vadims06/ospfwatcher",
+  "install_dir": "/opt/topolograph/ospfwatcher",
+  "host_requirements": [
+    "Linux host with Docker, Docker Compose v2 and containerlab",
+    "git, curl and systemd",
+    "sudo",
+    "Access to Topolograph over HTTP(S)"
+  ],
+  "modes": [
+    {
+      "id": "bgpls",
+      "title": "BGP-LS",
+      "description": "The router exports its OSPF database over a BGP-LS session to the watcher. No tunnel and no OSPF adjacency with the network.",
+      "router_requirements": [
+        "BGP-LS (link-state address family) export of the OSPF database",
+        "TCP 179 between the router and the watcher host"
+      ],
+      "diagram_svg": "<svg xmlns='http://www.w3.org/2000/svg' width='660' height='170' font-family='sans-serif' font-size='13'><rect x='10' y='40' width='190' height='90' rx='6' fill='#e8f1fb' stroke='#3b7dd8'/><text x='105' y='65' text-anchor='middle'>Router (1) (2)</text><text x='105' y='88' text-anchor='middle' font-size='11'>OSPF area (5)</text><text x='105' y='106' text-anchor='middle' font-size='11'>exports BGP-LS</text><rect x='300' y='40' width='190' height='90' rx='6' fill='#eaf7ea' stroke='#3a9a3a'/><text x='395' y='65' text-anchor='middle'>OSPF Watcher</text><text x='395' y='88' text-anchor='middle' font-size='11'>GoBGP AS (3), router-id (4)</text><rect x='560' y='55' width='95' height='60' rx='6' fill='#f4f4f4' stroke='#777'/><text x='607' y='90' text-anchor='middle'>Topolograph</text><line x1='200' y1='85' x2='296' y2='85' stroke='#333' marker-end='url(#a)'/><text x='248' y='75' text-anchor='middle' font-size='11'>BGP-LS, TCP 179</text><line x1='490' y1='85' x2='556' y2='85' stroke='#333' marker-end='url(#a)'/><text x='523' y='75' text-anchor='middle' font-size='11'>HTTP(S)</text><defs><marker id='a' markerWidth='8' markerHeight='8' refX='8' refY='4' orient='auto'><path d='M0,0 L8,4 L0,8 z' fill='#333'/></marker></defs></svg>",
+      "router_examples": [
+        {
+          "vendor": "Cisco IOS-XR",
+          "config": "router ospf 1\n distribute link-state\n!\nrouter bgp {bgpls_router_as}\n address-family link-state link-state\n !\n neighbor <watcher-host-ip>\n  remote-as {bgpls_watcher_as}\n  ! for eBGP: ebgp-multihop 255\n  address-family link-state link-state"
+        }
+      ]
+    }
+  ],
+  "fields": [
+    {
+      "id": "bgpls_router_ip",
+      "label": "Router IP address, BGP peer",
+      "diagram_label": "1",
+      "type": "ip",
+      "source": "user",
+      "modes": [
+        "bgpls"
+      ]
+    },
+    {
+      "id": "bgpls_router_as",
+      "label": "Router AS number",
+      "diagram_label": "2",
+      "type": "asn",
+      "source": "user",
+      "modes": [
+        "bgpls"
+      ]
+    },
+    {
+      "id": "bgpls_watcher_as",
+      "label": "Watcher AS number",
+      "diagram_label": "3",
+      "type": "asn",
+      "source": "user",
+      "modes": [
+        "bgpls"
+      ],
+      "help": "A different AS from the router's makes the session eBGP with multihop."
+    },
+    {
+      "id": "bgpls_router_id",
+      "label": "Watcher router-id",
+      "diagram_label": "4",
+      "type": "ip",
+      "source": "user",
+      "modes": [
+        "bgpls"
+      ]
+    },
+    {
+      "id": "ospf_area_num",
+      "label": "OSPF area",
+      "diagram_label": "5",
+      "type": "ospf_area",
+      "source": "user"
+    },
+    {
+      "id": "bgpls_passive_mode",
+      "label": "Passive mode: the router opens the session to TCP 179 of the watcher host",
+      "type": "boolean",
+      "source": "default",
+      "default": false,
+      "modes": [
+        "bgpls"
+      ],
+      "help": "One passive watcher per host, because it takes TCP 179."
+    },
+    {
+      "id": "asn",
+      "label": "AS number where OSPF runs, shown on events",
+      "type": "integer",
+      "source": "default",
+      "default": 0,
+      "min": 0,
+      "max": 4294967295
+    },
+    {
+      "id": "organisation_name",
+      "label": "Organisation name",
+      "type": "string",
+      "source": "default",
+      "default": "",
+      "pattern": "^[a-z0-9-]{0,20}$"
+    },
+    {
+      "id": "registry_prefix",
+      "label": "Docker Hub mirror",
+      "type": "string",
+      "env": "REGISTRY_PREFIX",
+      "source": "default",
+      "default": "",
+      "pattern": "^([A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*/)?$",
+      "help": "Prefix put before every image, e.g. mirror.example.com:5000/"
+    }
+  ],
+  "commands": [
+    {
+      "title": "Download",
+      "text": "sudo git clone --branch {ref} {repo_url} {install_dir}\ncd {install_dir}"
+    },
+    {
+      "title": "Configure and run",
+      "text": "sudo ./configure.sh --url {url} --token {token}"
+    }
+  ]
+}

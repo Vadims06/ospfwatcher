@@ -6,15 +6,20 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 > For older images, BGP-LS support is not available.
 
 ## Quick start
-1. On a Docker host, install Topolograph and the watcher compose files:
+1. In Topolograph open **Watchers → Add watcher → OSPF Watcher**, pick the connection mode, fill in the form and copy the two command blocks it shows. Topolograph registers the watcher and puts its token into the command.
+2. Run them on a Docker host with containerlab:
 
     ```bash
-    curl -O https://raw.githubusercontent.com/Vadims06/topolograph-docker/master/install.sh
-    chmod +x install.sh
-    sudo ./install.sh
+    # 1. Download
+    sudo git clone --branch <version> https://github.com/Vadims06/ospfwatcher /opt/topolograph/ospfwatcher
+    cd /opt/topolograph/ospfwatcher
+    # 2. Configure and run
+    sudo ./configure.sh --url <topolograph-url> --token <watcher-token>
     ```
-2. `cp .env.template .env`, then set `TOPOLOGRAPH_HOST` and `TOPOLOGRAPH_PORT` to the host IP (not `localhost`).
-3. Pick a deployment size in [How to connect OSPF watcher to real network](#how-to-connect-ospf-watcher-to-real-network).
+    `configure.sh` checks Docker, Docker Compose, containerlab and curl, fetches your answers from Topolograph, builds the watcher with `client.py --answers` and starts it from the `topolograph-ospfwatcher` systemd service, which brings the watchers back after a reboot. All watchers of one checkout share its version: `configure.sh` rebuilds each of them from its own registration.
+3. Configure the router as the watcher page shows. The page shows when the command ran, when data arrived and a link to the graph.
+
+Without the Watchers page (Topolograph before v2.74), follow [How to connect OSPF watcher to real network](#how-to-connect-ospf-watcher-to-real-network).
 
 No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
 
@@ -308,6 +313,20 @@ tunnel destination <host-ip>
 ip ospf network type point-to-point
 ```
 Set GRE tunnel network where <GRE tunnel ip address> is placed to `quagga/config/ospfd.conf`  
+
+For BGP-LS mode, export the OSPF database to the watcher. An example for Cisco IOS-XR
+```bash
+router ospf 1
+ distribute link-state
+!
+router bgp <router-as>
+ address-family link-state link-state
+ !
+ neighbor <watcher-host-ip>
+  remote-as <watcher-as>
+  ! for eBGP: ebgp-multihop 255
+  address-family link-state link-state
+```
 
 Check OSPF neighbor, if there is no OSPF adjacency between network device and OSPF Watcher, check troubleshooting `OSPF Watcher <-> Network device connection` section below (to run diagnostic script).
 

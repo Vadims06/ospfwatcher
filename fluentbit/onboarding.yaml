@@ -1,0 +1,32 @@
+# Fluent Bit for watchers installed from Topolograph's Watchers page. Each
+# watcher adds its own input and output in watchers/<watcher>.yaml, so its
+# events travel with its own token. The filters are shared.
+
+service:
+  flush: 1
+  log_level: info
+  daemon: off
+  parsers_file: parsers.conf
+  http_server: on
+  http_listen: 0.0.0.0
+  http_port: 2020
+
+includes:
+  - watchers/*.yaml
+
+pipeline:
+  filters:
+    - name: grep
+      match: onboarding.*
+      regex: log changed
+
+    - name: lua
+      match: onboarding.*
+      script: /fluent-bit/etc/parse_events.lua
+      call: parse_events
+
+    - name: modify
+      match: onboarding.*
+      add:
+        - protocol ospf
+        - metadata.exporter fluentbit
