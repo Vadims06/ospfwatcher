@@ -891,7 +891,7 @@ class WATCHER_CONFIG:
             'outputs': [{
                 'name': 'http', 'match': tag,
                 'host': server["topolograph_host"], 'port': int(server["topolograph_port"]),
-                'uri': '/websocket', 'format': 'json', 'json_date_key': '@timestamp', 'retry_limit': 3,
+                'uri': '/websocket', 'format': 'json', 'json_date_key': '@timestamp', 'retry_limit': 'no_limits',
                 'tls': server["topolograph_tls"],
                 'header': f"Authorization Bearer {server['watcher_token']}",
             }],
