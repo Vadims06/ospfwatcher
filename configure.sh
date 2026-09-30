@@ -56,34 +56,46 @@ mkdir -p "$answers_dir"
 chmod 700 "$answers_dir"
 trap 'rm -rf "$checkout/$answers_dir"' EXIT
 
-# The new watcher first, then every watcher already here, each with its own token.
-tokens=("$token")
-for config in watcher/watcher[0-9]*/config.yml; do
-    [ -e "$config" ] || continue
-    sibling=$(grep -o "TOPOLOGRAPH_API_TOKEN: wt-[A-Za-z0-9]*" "$config" | head -1 | cut -d' ' -f2)
-    [ -n "$sibling" ] && [ "$sibling" != "$token" ] && tokens+=("$sibling")
-done
-
-echo "Fetching the watcher configuration from ${url%/}"
-number=0
-for watcher_token in "${tokens[@]}"; do
-    number=$((number + 1))
-    answer="$answers_dir/$number.json"
-    if ! status=$(curl -sS -G -o "$answer" -w '%{http_code}' \
-            -H "Authorization: Bearer $watcher_token" \
+# fetch <token> <file>: the watcher's configuration, or a message and exit status 1.
+fetch() {
+    local status
+    if ! status=$(curl -sS -G -o "$2" -w '%{http_code}' \
+            -H "Authorization: Bearer $1" \
             --data-urlencode "host_id=$host_id" \
             --data-urlencode "host_name=$(hostname)" \
             --data-urlencode "ref=$ref" \
             "${url%/}/api/watcher/config"); then
         echo "Cannot reach Topolograph at $url" >&2
-        exit 1
+        return 1
     fi
     case "$status" in
-        200) ;;
-        401) echo "Topolograph refused a token of this checkout. Copy the command again from the watcher page, or remove a watcher deleted in Topolograph from $checkout/watcher." >&2; exit 1 ;;
-        409) echo "A watcher of this checkout needs answers for the new version: $(cat "$answer"). Answer them on the watcher page." >&2; exit 1 ;;
-        *) echo "Topolograph answered $status: $(cat "$answer")" >&2; exit 1 ;;
+        200) return 0 ;;
+        409) echo "Answers missing for the new version: $(cat "$2"). Answer them on the watcher page." >&2 ;;
+        *) echo "Topolograph answered $status: $(cat "$2")" >&2 ;;
     esac
+    return 1
+}
+
+echo "Fetching the watcher configuration from ${url%/}"
+if ! fetch "$token" "$answers_dir/0.json"; then
+    echo "Copy the command again from the watcher page." >&2
+    exit 1
+fi
+watcher_id=$(grep -o '"watcher_id": *"[0-9a-f]*"' "$answers_dir/0.json" | grep -o '[0-9a-f]\{24\}')
+
+# Every other watcher of this checkout is rebuilt from its own registration.
+number=0
+for config in watcher/watcher[0-9]*/config.yml; do
+    [ -e "$config" ] || continue
+    grep -Eq "watcher_id: '?$watcher_id'?$" "$config" && continue
+    number=$((number + 1))
+    sibling=$(grep -o "TOPOLOGRAPH_API_TOKEN: wt-[A-Za-z0-9]*" "$config" | head -1 | cut -d' ' -f2)
+    if ! fetch "$sibling" "$answers_dir/$number.json"; then
+        folder=$(dirname "$config")
+        echo "$folder belongs to a watcher Topolograph no longer accepts. If it was deleted there, remove it:" >&2
+        echo "  sudo containerlab destroy -t $checkout/$config && sudo rm -rf $checkout/$folder $checkout/fluentbit/watchers/$(basename "$folder").yaml" >&2
+        exit 1
+    fi
 done
 
 if grep -qs '"connection_mode": *"gre"' "$answers_dir"/*.json; then
