@@ -355,7 +355,8 @@ class WATCHER_CONFIG:
             return "Tunnel's network doesn't match"
         if self.gre_tunnel_ip_w_mask_network_device == self.gre_tunnel_ip_w_mask_watcher:
             return "Tunnel' IP addresses must be different on endpoints"
-        if len(self.host_veth) > LINUX_INTERFACE_NAME_MAX_LEN:
+        # The dialog asks the tunnel number after the addresses
+        if self.gre_tunnel_number and len(self.host_veth) > LINUX_INTERFACE_NAME_MAX_LEN:
             return f"Interface name {self.host_veth} is longer than {LINUX_INTERFACE_NAME_MAX_LEN} characters, use a shorter GRE tunnel number"
         return ""
 
