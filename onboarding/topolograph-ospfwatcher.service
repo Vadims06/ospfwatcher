@@ -1,0 +1,15 @@
+[Unit]
+Description=OSPF Watcher topologies installed from Topolograph
+Requires=docker.service
+# A restart of Docker loses the veth, netns and GRE, so the watchers are redeployed with it
+PartOf=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/topolograph/ospfwatcher/onboarding/start.sh
+
+[Install]
+WantedBy=multi-user.target docker.service
