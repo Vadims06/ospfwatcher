@@ -50,7 +50,8 @@ if [ ${#unregistered[@]} -gt 0 ]; then
 fi
 
 version=$(cat VERSION)
-host_id=$(cat /etc/machine-id 2>/dev/null || hostname)
+# A cloned image can ship an empty machine-id
+host_id=$( [ -s /etc/machine-id ] && cat /etc/machine-id || hostname)
 ref=$(git describe --tags --exact-match 2>/dev/null || git symbolic-ref -q --short HEAD 2>/dev/null || git rev-parse --short HEAD)
 answers_dir=watcher/.answers
 rm -rf "$answers_dir"

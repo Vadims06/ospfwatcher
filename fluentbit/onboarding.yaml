@@ -10,6 +10,8 @@ service:
   http_server: on
   http_listen: 0.0.0.0
   http_port: 2020
+  # On the state volume, so events not yet delivered outlive the container
+  storage.path: /fluent-bit/state/buffer
 
 includes:
   - watchers/*.yaml

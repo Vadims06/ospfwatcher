@@ -4,6 +4,7 @@ import enum
 import ipaddress
 import json
 import os
+import time
 import re
 import shutil
 import sys
@@ -56,7 +57,7 @@ class WATCHER_CONFIG:
         WATCHER_NODE_NAME: "vadims06/ospf-watcher:{version}",
         BGPLSWATCHER_NODE_NAME: "vadims06/bgplswatcher:v1.0.4",
         LOGROTATION_NODE_NAME: LOGROTATION_IMAGE,
-        ROUTER_NODE_NAME: "vadims06/frr:v8.5.4",
+        ROUTER_NODE_NAME: "vadims06/frr:v10.8_srlg",
         OSPF_FILTER_NODE_NAME: "vadims06/ospf-filter-xdp:v1",
     }
     FLUENT_BIT_WATCHERS_FOLDER = os.path.join("fluentbit", "watchers")
@@ -354,6 +355,10 @@ class WATCHER_CONFIG:
 
     def get_gre_endpoints_error(self) -> str:
         """Why the two tunnel ends cannot form an adjacency; empty when they can."""
+        # The watcher runs OSPFv2
+        if any(ipaddress.ip_interface(address).version != 4
+               for address in (self.gre_tunnel_ip_w_mask_network_device, self.gre_tunnel_ip_w_mask_watcher)):
+            return "Tunnel addresses must be IPv4"
         if not self.is_network_the_same(self.gre_tunnel_ip_w_mask_network_device, self.gre_tunnel_ip_w_mask_watcher):
             return "Tunnel's network doesn't match"
         if self.gre_tunnel_ip_w_mask_network_device == self.gre_tunnel_ip_w_mask_watcher:
@@ -849,6 +854,24 @@ class WATCHER_CONFIG:
     def print_gre_cleanup(self):
         print("\n".join(self.get_gre_cleanup_commands()))
 
+    @staticmethod
+    def get_conflict_error(configs: list) -> str:
+        """Topologies of one host share port 179 and the GRE NAT rules, so some answers cannot run together."""
+        passive = [config["name"] for config in configs if config["connection_mode"] == "bgpls"
+                   and str(config["answers"].get("bgpls_passive_mode")).lower() == "true"]
+        if len(passive) > 1:
+            return f"Only one passive BGP-LS watcher fits a host, they all listen on port 179: {', '.join(passive)}"
+        names_by_pair = {}
+        for config in configs:
+            if config["connection_mode"] != "gre":
+                continue
+            pair = (config["answers"].get("gre_tunnel_network_device_ip"), config["answers"].get("host_interface_device_ip"))
+            if pair in names_by_pair:
+                return (f"{names_by_pair[pair]} and {config['name']} both use router {pair[0]} and host {pair[1]}: "
+                        f"inbound GRE would reach only one of them, give each watcher its own router address")
+            names_by_pair[pair] = config["name"]
+        return ""
+
     @classmethod
     def add_watchers_from_answers(cls, answers_path) -> bool:
         """One response carries every watcher of the checkout, so a rotated sibling token blocks nothing."""
@@ -858,9 +881,20 @@ class WATCHER_CONFIG:
         for watcher_id, sibling in siblings.items():
             folder_name = sibling is None and cls.get_folder_by_watcher_id(watcher_id)
             if folder_name:
-                # configure.sh drops its Fluent Bit input along with the folder
-                shutil.rmtree(os.path.join(os.getcwd(), cls.WATCHER_ROOT_FOLDER, folder_name))
-                print(f"Removed {folder_name}: its watcher was deleted in Topolograph")
+                # Deleted, or registered elsewhere: out of service but kept, configure.sh drops its Fluent Bit input
+                removed_root = os.path.join(os.getcwd(), cls.WATCHER_ROOT_FOLDER, ".removed")
+                os.makedirs(removed_root, exist_ok=True)
+                # A timestamp, so a later watcher reusing the name never overwrites this copy
+                kept_name = f"{folder_name}-{time.strftime('%Y%m%dT%H%M%S')}"
+                os.rename(os.path.join(os.getcwd(), cls.WATCHER_ROOT_FOLDER, folder_name),
+                          os.path.join(removed_root, kept_name))
+                print(f"Moved {folder_name} to {cls.WATCHER_ROOT_FOLDER}/.removed/{kept_name}: Topolograph does not "
+                      f"know this watcher on this host. If it should run here, run the command from its watcher page.")
+        # After the removals, so a refused rebuild never keeps a deleted watcher running
+        conflict = cls.get_conflict_error([*filter(None, siblings.values()), config])
+        if conflict:
+            print(conflict, file=sys.stderr)
+            return False
         is_built = True
         for watcher_config in [*filter(None, siblings.values()), config]:
             try:
@@ -949,12 +983,16 @@ class WATCHER_CONFIG:
                 # Offsets survive a restart; start.sh starts Fluent Bit before the watchers write
                 'db': f"/fluent-bit/state/{self.watcher_folder_name}.db",
                 'read_from_head': False, 'refresh_interval': 1, 'rotate_wait': 1,
+                # Undelivered chunks survive a restart of Fluent Bit
+                'storage.type': 'filesystem',
                 'mem_buf_limit': '50MB', 'skip_long_lines': 'on',
             }],
             'outputs': [{
                 'name': 'http', 'match': tag,
                 'host': server["topolograph_host"], 'port': int(server["topolograph_port"]),
                 'uri': '/websocket', 'format': 'json', 'json_date_key': '@timestamp', 'retry_limit': 'no_limits',
+                # Filesystem chunks no longer pause the input, so a long outage is capped here
+                'storage.total_limit_size': '500M',
                 'tls': server["topolograph_tls"],
                 'header': f"Authorization Bearer {server['watcher_token']}",
             }],
@@ -966,7 +1004,8 @@ class WATCHER_CONFIG:
             with open_private(temporary_path) as f:
                 ruamel_yaml_default_mode.dump(fluent_bit_config, f)
         except BaseException:
-            os.remove(temporary_path)
+            if os.path.exists(temporary_path):
+                os.remove(temporary_path)
             raise
         os.replace(temporary_path, path)
 
