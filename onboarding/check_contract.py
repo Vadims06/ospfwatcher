@@ -63,8 +63,11 @@ def get_errors(tag: str) -> list:
     images += re.findall(r'LOGROTATION_IMAGE = "([^"]+)"', client_source)
     for image in images:
         errors += get_image_errors(image)
-    if tag and not is_published("vadims06/ospf-watcher", version):
-        errors.append(f"vadims06/ospf-watcher:{version} is not published on Docker Hub")
+    # A missing dependency image fails the deploy just like the watcher image
+    for image in sorted(set(images) | {f"vadims06/ospf-watcher:{version}"}) if tag else []:
+        name, _, image_tag = image.rpartition(":")
+        if not is_published(name if "/" in name else f"library/{name}", image_tag):
+            errors.append(f"{image} is not published on Docker Hub")
     return errors
 
 

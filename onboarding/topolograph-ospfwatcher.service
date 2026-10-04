@@ -1,7 +1,8 @@
 [Unit]
 Description=OSPF Watcher topologies installed from Topolograph
-Requires=docker.service
-# A restart of Docker loses the veth, netns and GRE, so the watchers are redeployed with it
+# Docker stopping for any reason, a crash too, loses the veth, netns and GRE,
+# so the watchers stop with it and are redeployed when it starts again
+BindsTo=docker.service
 PartOf=docker.service
 After=docker.service network-online.target
 Wants=network-online.target

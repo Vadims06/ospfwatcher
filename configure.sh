@@ -22,6 +22,8 @@ done
 [ -n "$url" ] && [ -n "$token" ] || usage
 cd "$(dirname "$0")"
 checkout=$(pwd)
+# The path goes into the systemd unit and a sed replacement unquoted
+[[ "$checkout" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "Move the checkout to a path of letters, digits, . _ / and - only: $checkout" >&2; exit 1; }
 
 missing=()
 command -v docker >/dev/null 2>&1 || missing+=("docker")
@@ -64,6 +66,7 @@ fetch() {
             --data-urlencode "host_id=$host_id" \
             --data-urlencode "host_name=$(hostname)" \
             --data-urlencode "ref=$ref" \
+            --data-urlencode "watcher_ids=$watcher_ids" \
             "${url%/}/api/watcher/config"); then
         echo "Cannot reach Topolograph at $url" >&2
         return 1
@@ -76,28 +79,14 @@ fetch() {
     return 1
 }
 
+# Every watcher of this checkout comes back in one answer, with its current token or as deleted
+watcher_ids=$(grep -ho "watcher_id: '\?[0-9a-f]\{24\}" watcher/watcher[0-9]*/config.yml 2>/dev/null \
+    | grep -o '[0-9a-f]\{24\}' | paste -sd, - || true)
 echo "Fetching the watcher configuration from ${url%/}"
 if ! fetch "$token" "$answers_dir/0.json"; then
     echo "Copy the command again from the watcher page." >&2
     exit 1
 fi
-watcher_id=$(grep -o '"watcher_id": *"[0-9a-f]*"' "$answers_dir/0.json" | grep -o '[0-9a-f]\{24\}')
-
-# Every other watcher of this checkout is rebuilt from its own registration.
-number=0
-for config in watcher/watcher[0-9]*/config.yml; do
-    [ -e "$config" ] || continue
-    grep -Eq "watcher_id: '?$watcher_id'?$" "$config" && continue
-    number=$((number + 1))
-    sibling=$(grep -o "TOPOLOGRAPH_API_TOKEN: wt-[A-Za-z0-9]*" "$config" | head -1 | cut -d' ' -f2)
-    if ! fetch "$sibling" "$answers_dir/$number.json"; then
-        folder=$(dirname "$config")
-        echo "$folder belongs to a watcher Topolograph no longer accepts. If it was deleted there, remove it:" >&2
-        echo "  sudo containerlab destroy -t $checkout/$config && sudo rm -rf $checkout/$folder $checkout/fluentbit/watchers/$(basename "$folder").yaml" >&2
-        exit 1
-    fi
-done
-
 if grep -qs '"connection_mode": *"gre"' "$answers_dir"/*.json; then
     for tool in iptables conntrack; do
         command -v "$tool" >/dev/null 2>&1 || { echo "Install or fix first: $tool, needed by GRE mode" >&2; exit 1; }
@@ -126,6 +115,13 @@ image="${registry_prefix}vadims06/ospf-watcher:${version}"
 # A rebuild can rename a watcher's folder, so every old topology and Fluent Bit
 # input goes first; the service below deploys all watchers again.
 docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image"
+run_client() {
+    docker run --rm --user 0:0 -e REGISTRY_PREFIX="$registry_prefix" \
+        -v "$checkout":/home/watcher/watcher -w /home/watcher/watcher \
+        --entrypoint python3 "$image" client.py "$@"
+}
+# containerlab destroy leaves the GRE rules on the host; the deploy adds the current ones back
+run_client --action print_gre_cleanup | bash
 for config in watcher/watcher[0-9]*/config.yml; do
     [ -e "$config" ] || continue
     containerlab destroy -t "$config" >/dev/null 2>&1 || true
@@ -133,12 +129,8 @@ done
 
 # One watcher that fails to build must not keep the others down
 failed=0
-for answer in "$answers_dir"/*.json; do
-    docker run --rm --user 0:0 -e REGISTRY_PREFIX="$registry_prefix" \
-        -v "$checkout":/home/watcher/watcher -w /home/watcher/watcher \
-        --entrypoint python3 "$image" client.py --action add_watcher --answers "$answer" || failed=1
-done
-# Inputs of folders a rebuild renamed
+run_client --action add_watcher --answers "$answers_dir/0.json" || failed=1
+# Inputs of folders a rebuild renamed or a deleted watcher left
 for input in fluentbit/watchers/*.yaml; do
     [ -e "$input" ] || continue
     [ -d "watcher/$(basename "$input" .yaml)" ] || rm -f "$input"

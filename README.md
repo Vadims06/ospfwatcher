@@ -262,7 +262,7 @@ Output:
 |  | netns FRR  |           |                       |                   |
 |  |            Tunnel [4]  |                       | Tunnel [4]        |
 |  |  gre1   [3]TunnelIP----+-----------------------+[2]TunnelIP        |
-|  |  eth1------+-vhost1    |       +-----+         | OSPF area num [5] |
+|  |  eth1------+-ospf1-gre1|       +-----+         | OSPF area num [5] |
 |  |            | Host IP[6]+-------+ LAN |--------[1]Device IP         |
 |  |            |           |       +-----+         |                   |
 |  +------------+           |                       |                   |
@@ -486,8 +486,8 @@ sudo cat /sys/kernel/debug/tracing/trace_pipe
 ```
 To check whether XDP filter is assigned on the interface, run
 ```
-ubuntu20:~/ospfwatcher$ ip l show dev it-vhost1025
-178: it-vhost1025@if177: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdp qdisc noqueue state UP mode DEFAULT group default
+ubuntu20:~/ospfwatcher$ ip l show dev ospf1-gre1025
+178: ospf1-gre1025@if177: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdp qdisc noqueue state UP mode DEFAULT group default
     link/ether aa:c1:ab:e3:cb:d9 brd ff:ff:ff:ff:ff:ff link-netnsid 0
     prog/xdp id 153 <-- !!!
 ```
