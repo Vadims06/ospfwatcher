@@ -162,7 +162,8 @@ for input in fluentbit/watchers/*.yaml; do
 done
 
 unit=/etc/systemd/system/topolograph-ospfwatcher.service
-sed "s|/opt/topolograph/ospfwatcher|$checkout|" onboarding/topolograph-ospfwatcher.service > "$unit"
+# Replaced in one step, so a failed write never leaves a truncated unit
+sed "s|/opt/topolograph/ospfwatcher|$checkout|" onboarding/topolograph-ospfwatcher.service > "$unit.new" && mv "$unit.new" "$unit"
 systemctl daemon-reload
 systemctl enable topolograph-ospfwatcher.service >/dev/null
 echo "Starting the watchers of $checkout"
