@@ -31,11 +31,6 @@ services:
       EXPORT_TO_ZABBIX_BOOL: $EXPORT_TO_ZABBIX_BOOL
       EXPORT_TO_WEBHOOK_URL_BOOL: $EXPORT_TO_WEBHOOK_URL_BOOL
       WEBHOOK_URL: $WEBHOOK_URL
-      EXPORT_TO_TOPOLOGRAPH_SOCKET: $EXPORT_TO_TOPOLOGRAPH_SOCKET
-      TOPOLOGRAPH_HOST: $TOPOLOGRAPH_HOST
-      TOPOLOGRAPH_PORT: $TOPOLOGRAPH_PORT
-      TOPOLOGRAPH_WEB_API_USERNAME_EMAIL: ${TOPOLOGRAPH_WEB_API_USERNAME_EMAIL}
-      TOPOLOGRAPH_WEB_API_PASSWORD: ${TOPOLOGRAPH_WEB_API_PASSWORD}
       EXPORT_TO_LOKI_BOOL: $EXPORT_TO_LOKI_BOOL
       LOKI_URL: $LOKI_URL
     healthcheck:
@@ -46,8 +41,6 @@ services:
       start_period: 20s
     depends_on:
      - ospf-logstash-index-creator
-    networks:
-      - topolograph_backend
   
   ospf-logstash-index-creator:
     image: ${REGISTRY_PREFIX:-}vadims06/ospf-watcher:${WATCHER_VERSION:-v3.4.0}
@@ -63,8 +56,6 @@ services:
       ELASTIC_IP: $ELASTIC_IP
       ELASTIC_PORT: $ELASTIC_PORT
     entrypoint: ["python", "create.py"]
-    networks:
-      - topolograph_backend
 
   fluent-bit:
     image: ${REGISTRY_PREFIX:-}fluent/fluent-bit:3.2
@@ -87,10 +78,6 @@ services:
         source: fluent-bit-state
         target: /fluent-bit/state
     environment:
-      TOPOLOGRAPH_HOST: ${TOPOLOGRAPH_HOST:-localhost}
-      TOPOLOGRAPH_PORT: ${TOPOLOGRAPH_PORT:-8080}
-      TOPOLOGRAPH_WEB_API_USERNAME_EMAIL: ${TOPOLOGRAPH_WEB_API_USERNAME_EMAIL}
-      TOPOLOGRAPH_WEB_API_PASSWORD: ${TOPOLOGRAPH_WEB_API_PASSWORD}
       WEBHOOK_HOST: ${WEBHOOK_HOST:-localhost}
       WEBHOOK_PORT: ${WEBHOOK_PORT:-9090}
       WEBHOOK_URI: ${WEBHOOK_URI:-/}
@@ -98,8 +85,3 @@ services:
 
 volumes:
   fluent-bit-state:
-
-networks:
-  topolograph_backend:
-    external: true
-    name: topolograph_backend

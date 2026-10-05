@@ -40,18 +40,6 @@ pipeline:
   outputs:
     - name: http
       match: watcher_logs
-      host: ${TOPOLOGRAPH_HOST}
-      port: ${TOPOLOGRAPH_PORT}
-      uri: /websocket
-      http_user: ${TOPOLOGRAPH_WEB_API_USERNAME_EMAIL}
-      http_passwd: ${TOPOLOGRAPH_WEB_API_PASSWORD}
-      format: json
-      json_date_key: "@timestamp"
-      retry_limit: 3
-      tls: off
-
-    - name: http
-      match: watcher_logs
       host: ${WEBHOOK_HOST}
       port: ${WEBHOOK_PORT}
       uri: ${WEBHOOK_URI}

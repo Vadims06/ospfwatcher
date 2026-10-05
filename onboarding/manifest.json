@@ -110,6 +110,7 @@
       "label": "GRE tunnel IP on the watcher, with mask, same subnet",
       "diagram_label": "3",
       "type": "ip_interface",
+      "same_network_as": "gre_tunnel_ip_w_mask_network_device",
       "source": "user",
       "modes": [
         "gre"
@@ -189,7 +190,7 @@
       "env": "REGISTRY_PREFIX",
       "source": "default",
       "default": "",
-      "pattern": "^([A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*/)?$",
+      "pattern": "^([A-Za-z0-9.-]+(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*/)?$",
       "help": "Prefix put before every image, e.g. mirror.example.com:5000/"
     }
   ],

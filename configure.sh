@@ -31,6 +31,7 @@ docker compose version >/dev/null 2>&1 || missing+=("docker compose v2")
 command -v containerlab >/dev/null 2>&1 || missing+=("containerlab")
 command -v curl >/dev/null 2>&1 || missing+=("curl")
 command -v git >/dev/null 2>&1 || missing+=("git")
+command -v flock >/dev/null 2>&1 || missing+=("flock")
 command -v systemctl >/dev/null 2>&1 || missing+=("systemd")
 [ "$(id -u)" -eq 0 ] || missing+=("root: run with sudo")
 if [ ${#missing[@]} -gt 0 ]; then
@@ -45,7 +46,7 @@ for config in watcher/watcher[0-9]*/config.yml; do
 done
 if [ ${#unregistered[@]} -gt 0 ]; then
     echo "Installed by hand, so configure.sh cannot rebuild them: ${unregistered[*]}" >&2
-    echo "Move them to another checkout first." >&2
+    echo "Stop each with: sudo containerlab destroy -t <folder>/config.yml, move it out of this checkout and add it on Topolograph's Watchers page." >&2
     exit 1
 fi
 
@@ -53,11 +54,27 @@ version=$(cat VERSION)
 # A cloned image can ship an empty machine-id
 host_id=$( [ -s /etc/machine-id ] && cat /etc/machine-id || hostname)
 ref=$(git describe --tags --exact-match 2>/dev/null || git symbolic-ref -q --short HEAD 2>/dev/null || git rev-parse --short HEAD)
+# Two runs would tear down and rebuild the same folders
+exec 9> watcher/.configure.lock
+flock -n 9 || { echo "Another configure.sh is running in this checkout." >&2; exit 1; }
 answers_dir=watcher/.answers
 rm -rf "$answers_dir"
 mkdir -p "$answers_dir"
 chmod 700 "$answers_dir"
-trap 'rm -rf "$checkout/$answers_dir"' EXIT
+torn_down=0
+images_ready=0
+# Watchers taken down and not yet redeployed come back, also after Ctrl-C or a failed step
+on_exit() {
+    local status=$?
+    # A mirror prefix stays only once its images are pulled
+    if [ "$status" -ne 0 ] && [ "$images_ready" -eq 0 ] && [ -f "$checkout/$answers_dir/.env.before" ]; then
+        cp "$checkout/$answers_dir/.env.before" "$checkout/.env"
+    fi
+    rm -rf "$checkout/$answers_dir"
+    [ "$status" -eq 0 ] || [ "$torn_down" -eq 0 ] || systemctl restart topolograph-ospfwatcher.service
+}
+trap on_exit EXIT
+trap 'exit 130' INT TERM
 
 # fetch <token> <file>: the watcher's configuration, or a message and exit status 1.
 fetch() {
@@ -88,13 +105,15 @@ if ! fetch "$token" "$answers_dir/0.json"; then
     echo "Copy the command again from the watcher page." >&2
     exit 1
 fi
-if grep -qs '"connection_mode": *"gre"' "$answers_dir"/*.json; then
+# Old GRE watchers need iptables too: their rules go before the new answers apply
+if grep -qs '"connection_mode": *"gre"' "$answers_dir"/*.json || grep -qs 'iptables -A' watcher/watcher[0-9]*/config.yml; then
     for tool in iptables conntrack; do
         command -v "$tool" >/dev/null 2>&1 || { echo "Install or fix first: $tool, needed by GRE mode" >&2; exit 1; }
     done
 fi
 
 [ -e .env ] || cp .env.template .env
+cp .env "$answers_dir/.env.before"
 [ -z "$(tail -c1 .env)" ] || echo >> .env
 set_env() {
     grep -q "^$1=" .env && sed -i "s|^$1=.*|$1=$2|" .env || echo "$1=$2" >> .env
@@ -107,9 +126,6 @@ while IFS='=' read -r name value; do
 done < "$answers_dir/env"
 set_env WATCHER_VERSION "$version"
 set_env FLUENT_BIT_CONFIG onboarding.yaml
-# Watchers sign in with their own token, never with a user login.
-set_env TOPOLOGRAPH_WEB_API_USERNAME_EMAIL ""
-set_env TOPOLOGRAPH_WEB_API_PASSWORD ""
 registry_prefix=$(grep "^REGISTRY_PREFIX=" .env | cut -d= -f2- || true)
 image="${registry_prefix}vadims06/ospf-watcher:${version}"
 
@@ -121,11 +137,19 @@ run_client() {
         -v "$checkout":/home/watcher/watcher -w /home/watcher/watcher \
         --entrypoint python3 "$image" client.py "$@"
 }
+# Every image is local before the running watchers go, so a missing one stops nothing
+run_client --action print_images | while read -r pinned; do
+    docker image inspect "$pinned" >/dev/null 2>&1 || docker pull "$pinned"
+done
+docker compose --profile fluent-bit pull --quiet fluent-bit
 # containerlab destroy leaves the GRE rules on the host; the deploy adds the current ones back
+images_ready=1
+torn_down=1
 run_client --action print_gre_cleanup | bash
 for config in watcher/watcher[0-9]*/config.yml; do
     [ -e "$config" ] || continue
-    containerlab destroy -t "$config" >/dev/null 2>&1 || true
+    # A topology left running would keep its interfaces and ports after its folder changes
+    containerlab destroy -t "$config" >/dev/null || { echo "Cannot stop $config, fix that and run again." >&2; exit 1; }
 done
 
 # One watcher that fails to build must not keep the others down
@@ -143,6 +167,7 @@ systemctl daemon-reload
 systemctl enable topolograph-ospfwatcher.service >/dev/null
 echo "Starting the watchers of $checkout"
 systemctl restart topolograph-ospfwatcher.service
+torn_down=0
 
 [ "$failed" -eq 0 ] || { echo "Some watchers failed to build, see the errors above." >&2; exit 1; }
 echo
