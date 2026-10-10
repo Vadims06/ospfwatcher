@@ -830,6 +830,10 @@ class WATCHER_CONFIG:
         backup_path = ""
         if existing_folder:
             self.watcher_num = int(re.match(r"watcher(\d+)-", existing_folder).group(1))
+            if not config["server"]["watcher_token"]:
+                # Topolograph keeps only a hash of a sibling's token, so the host keeps the one it has
+                existing_node = self.get_existed_configs()[existing_folder]['topology']['nodes'][self.WATCHER_NODE_NAME]
+                config["server"]["watcher_token"] = existing_node['env']['TOPOLOGRAPH_API_TOKEN']
             # Kept until the rebuild succeeds, so a failed one leaves the working watcher in place
             backup_path = os.path.join(self.watcher_root_folder_path, f".{existing_folder}.previous")
             shutil.rmtree(backup_path, ignore_errors=True)
