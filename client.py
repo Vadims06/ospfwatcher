@@ -795,8 +795,10 @@ class WATCHER_CONFIG:
         with open(answers_path) as f:
             config = json.load(f)
         siblings = config.pop("siblings", {})
+        # A config to rebuild, "unknown" when Topolograph cannot judge this host, otherwise why it stops
+        sibling_configs = [sibling for sibling in siblings.values() if isinstance(sibling, dict)]
         for watcher_id, sibling in siblings.items():
-            folder_name = sibling is None and cls.get_folder_by_watcher_id(watcher_id)
+            folder_name = isinstance(sibling, str) and sibling != "unknown" and cls.get_folder_by_watcher_id(watcher_id)
             if folder_name:
                 # Deleted, or registered elsewhere: out of service but kept, configure.sh drops its Fluent Bit input
                 removed_root = os.path.join(os.getcwd(), cls.WATCHER_ROOT_FOLDER, ".removed")
@@ -805,15 +807,15 @@ class WATCHER_CONFIG:
                 kept_name = f"{folder_name}-{time.strftime('%Y%m%dT%H%M%S')}"
                 os.rename(os.path.join(os.getcwd(), cls.WATCHER_ROOT_FOLDER, folder_name),
                           os.path.join(removed_root, kept_name))
-                print(f"Moved {folder_name} to {cls.WATCHER_ROOT_FOLDER}/.removed/{kept_name}: Topolograph does not "
-                      f"know this watcher on this host. If it should run here, run the command from its watcher page.")
+                print(f"Moved {folder_name} to {cls.WATCHER_ROOT_FOLDER}/.removed/{kept_name}: Topolograph reports it "
+                      f"{sibling}. If it should run here, run the command from its watcher page.")
         # After the removals, so a refused rebuild never keeps a deleted watcher running
-        conflict = cls.get_conflict_error([*filter(None, siblings.values()), config])
+        conflict = cls.get_conflict_error([*sibling_configs, config])
         if conflict:
             print(conflict, file=sys.stderr)
             return False
         is_built = True
-        for watcher_config in [*filter(None, siblings.values()), config]:
+        for watcher_config in [*sibling_configs, config]:
             try:
                 # Numbers of deleted watchers are reused, so a new folder never collides with a kept one.
                 cls(cls.gen_next_free_number()).add_watcher_from_answers(watcher_config)
