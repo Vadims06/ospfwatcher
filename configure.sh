@@ -142,15 +142,11 @@ run_client --action print_images | while read -r pinned; do
     docker image inspect "$pinned" >/dev/null 2>&1 || docker pull "$pinned"
 done
 docker compose --profile fluent-bit pull --quiet fluent-bit
-# containerlab destroy leaves the GRE rules on the host; the deploy adds the current ones back
 images_ready=1
 torn_down=1
-run_client --action print_gre_cleanup | bash
-for config in watcher/watcher[0-9]*/config.yml; do
-    [ -e "$config" ] || continue
-    # A topology left running would keep its interfaces and ports after its folder changes
-    containerlab destroy -t "$config" >/dev/null || { echo "Cannot stop $config, fix that and run again." >&2; exit 1; }
-done
+# Also removes the GRE rules containerlab destroy leaves; the deploy adds the current ones back
+# A topology left running would keep its interfaces and ports after its folder changes
+onboarding/stop.sh || { echo "Cannot stop the running watchers, fix that and run again." >&2; exit 1; }
 
 # One watcher that fails to build must not keep the others down
 failed=0

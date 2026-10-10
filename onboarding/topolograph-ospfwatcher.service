@@ -11,6 +11,8 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/opt/topolograph/ospfwatcher/onboarding/start.sh
+ExecStop=/opt/topolograph/ospfwatcher/onboarding/stop.sh
+TimeoutStopSec=300
 
 [Install]
 WantedBy=multi-user.target docker.service
