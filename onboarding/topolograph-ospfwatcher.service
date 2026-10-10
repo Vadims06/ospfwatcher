@@ -1,0 +1,18 @@
+[Unit]
+Description=OSPF Watcher topologies installed from Topolograph
+# Docker stopping for any reason, a crash too, loses the veth, netns and GRE,
+# so the watchers stop with it and are redeployed when it starts again
+BindsTo=docker.service
+PartOf=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/topolograph/ospfwatcher/onboarding/start.sh
+ExecStop=/opt/topolograph/ospfwatcher/onboarding/stop.sh
+TimeoutStopSec=300
+
+[Install]
+WantedBy=multi-user.target docker.service
