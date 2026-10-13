@@ -60,6 +60,8 @@ services:
   fluent-bit:
     image: ${REGISTRY_PREFIX:-}fluent/fluent-bit:3.2
     container_name: ospf-fluent-bit
+    # no Docker network of its own, so none to collide with containerlab\'s
+    network_mode: host
     # onboarding.yaml when installed from Topolograph's Watchers page
     command: ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/${FLUENT_BIT_CONFIG:-fluent-bit.yaml}"]
     restart: unless-stopped
