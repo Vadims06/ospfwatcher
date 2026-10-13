@@ -85,10 +85,3 @@ services:
 
 volumes:
   fluent-bit-state:
-
-networks:
-  default:
-    ipam:
-      config:
-        # Docker's pick from its pool can overlap containerlab's 172.20.20.0/24; OSPF and IS-IS watchers differ
-        - subnet: 172.31.254.0/24
