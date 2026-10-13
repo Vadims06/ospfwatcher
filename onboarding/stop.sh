@@ -11,6 +11,11 @@ for table in nat filter; do
     while read -r rule; do
         eval iptables -w -t "$table" "$rule" || status=1
     done < <(grep -- "--comment topolograph-ospfwatcher" <<<"$rules" | sed 's/^-A /-D /')
+    [ "$table" = nat ] || continue
+    # A GRE flow keeps its NAT after the rule goes, steering router packets to a removed watcher
+    while read -r source destination; do
+        conntrack -D -p gre -s "$source" -d "$destination" >/dev/null 2>&1
+    done < <(grep -- "--comment topolograph-ospfwatcher" <<<"$rules" | sed -n 's|^-A [A-Z]* -s \([0-9.]*\)/32 -d \([0-9.]*\)/32 .*|\1 \2|p')
 done
 for config in watcher/watcher[0-9]*/config.yml; do
     [ -e "$config" ] || continue
