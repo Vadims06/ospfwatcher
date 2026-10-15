@@ -2,7 +2,7 @@
 # Configures and starts OSPF Watcher from its registration in Topolograph:
 # the answers from the Add watcher wizard come back with the watcher token.
 # Watchers of this checkout share one version, so every one of them is
-# rebuilt from its own registration before anything restarts.
+# rebuilt from its own registration, and only those whose build changed restart.
 set -euo pipefail
 
 usage() {
@@ -63,6 +63,38 @@ mkdir -p "$answers_dir"
 chmod 700 "$answers_dir"
 torn_down=0
 images_ready=0
+unit_name=topolograph-ospfwatcher.service
+# A lab is up only while every container of its topology runs, so a crashed node counts as down;
+# receive_only_filter is one-shot and exits by design
+is_lab_running() {
+    local node nodes
+    nodes=$(awk '/^  nodes:/ {in_nodes=1; next} in_nodes && /^  [^ ]/ {in_nodes=0}
+        in_nodes && /^    [^ ]+:/ {node=$1; sub(":", "", node)}
+        in_nodes && /^      kind: linux/ && node != "receive_only_filter" {print node}' "watcher/$1/config.yml")
+    [ -n "$nodes" ] || return 1
+    for node in $nodes; do
+        [ -n "$(docker ps -q --filter "name=^$1-$node\$" --filter status=running)" ] || return 1
+    done
+}
+# Fingerprint of the Fluent Bit inputs, which carry tokens and must not be printed
+get_inputs_sum() {
+    cat fluentbit/watchers/*.yaml 2>/dev/null | cksum || true
+}
+# Starts what is down and leaves running watchers alone; Fluent Bit restarts only for new inputs.
+start_stopped() {
+    local folder down=()
+    systemctl is-active --quiet "$unit_name" || { systemctl restart "$unit_name"; return; }
+    for folder in watcher/watcher[0-9]*/; do
+        [ -d "$folder" ] || continue
+        is_lab_running "$(basename "$folder")" || down+=("${folder%/}")
+    done
+    if [ "$(get_inputs_sum)" != "$fluent_inputs_before" ]; then
+        docker compose --profile fluent-bit up -d --force-recreate fluent-bit
+    else
+        docker compose --profile fluent-bit up -d fluent-bit
+    fi
+    [ ${#down[@]} -eq 0 ] || onboarding/start.sh "${down[@]}"
+}
 # Watchers taken down and not yet redeployed come back, also after Ctrl-C or a failed step
 on_exit() {
     local status=$?
@@ -71,10 +103,32 @@ on_exit() {
         cp "$checkout/$answers_dir/.env.before" "$checkout/.env"
     fi
     rm -rf "$checkout/$answers_dir"
-    [ "$status" -eq 0 ] || [ "$torn_down" -eq 0 ] || systemctl restart topolograph-ospfwatcher.service
+    # Saved copies stay while a stop is pending: the next run retries from them
+    [ -e "$checkout/watcher/.pending-stop" ] || rm -rf "$checkout"/watcher/.before.*
+    find "$checkout/watcher" -maxdepth 1 -type l -name 'watcher[0-9]*' -delete
+    [ "$status" -eq 0 ] || [ "$torn_down" -eq 0 ] || start_stopped
 }
 trap on_exit EXIT
 trap 'exit 130' INT TERM
+
+# stop_saved <folder>...: stops watchers from their saved configs, as their folders may be gone or replaced.
+stop_saved() {
+    local name stop_configs=() status=0
+    for name in "$@"; do
+        # containerlab finds the topology of a running lab by the path it was deployed from
+        [ -e "watcher/$name" ] || ln -s ".before.$name" "watcher/$name"
+        stop_configs+=("watcher/.before.$name/config.yml")
+    done
+    onboarding/stop.sh "${stop_configs[@]}" || status=1
+    find watcher -maxdepth 1 -type l -name 'watcher[0-9]*' -delete
+    return $status
+}
+# A stop that failed in an earlier run goes first, before the folders change again
+if [ -e watcher/.pending-stop ]; then
+    mapfile -t pending_names < watcher/.pending-stop
+    stop_saved "${pending_names[@]}" || { echo "Cannot stop the watchers left from the previous run, fix that and run again." >&2; exit 1; }
+    rm -rf watcher/.pending-stop watcher/.before.*
+fi
 
 # fetch <token> <file>: the watcher's configuration, or a message and exit status 1.
 fetch() {
@@ -129,8 +183,6 @@ set_env FLUENT_BIT_CONFIG onboarding.yaml
 registry_prefix=$(grep "^REGISTRY_PREFIX=" .env | cut -d= -f2- || true)
 image="${registry_prefix}vadims06/ospf-watcher:${version}"
 
-# A rebuild can rename a watcher's folder, so every old topology and Fluent Bit
-# input goes first; the service below deploys all watchers again.
 docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image"
 run_client() {
     docker run --rm --user 0:0 -e REGISTRY_PREFIX="$registry_prefix" \
@@ -143,12 +195,19 @@ run_client --action print_images | while read -r pinned; do
 done
 docker compose --profile fluent-bit pull --quiet fluent-bit
 images_ready=1
-torn_down=1
-# Also removes the GRE rules containerlab destroy leaves; the deploy adds the current ones back
-# A topology left running would keep its interfaces and ports after its folder changes
-onboarding/stop.sh || { echo "Cannot stop the running watchers, fix that and run again." >&2; exit 1; }
+# The old config is needed to stop a watcher whose folder the rebuild replaces or renames;
+# the copy sits beside the folders because the config reaches ../../.env by relative path
+declare -A inode_before
+for folder in watcher/watcher[0-9]*/; do
+    [ -d "$folder" ] || continue
+    inode_before[$(basename "$folder")]=$(stat -c %i "$folder")
+    # A copy left by a killed run would take the new one inside it
+    rm -rf "watcher/.before.$(basename "$folder")"
+    cp -a "$folder" "watcher/.before.$(basename "$folder")"
+done
+fluent_inputs_before=$(get_inputs_sum)
 
-# One watcher that fails to build must not keep the others down
+# A watcher whose build is unchanged gets its own folder back, so the same inode marks it to keep running
 failed=0
 run_client --action add_watcher --answers "$answers_dir/0.json" || failed=1
 # Inputs of folders a rebuild renamed or a deleted watcher left
@@ -157,13 +216,28 @@ for input in fluentbit/watchers/*.yaml; do
     [ -d "watcher/$(basename "$input" .yaml)" ] || rm -f "$input"
 done
 
-unit=/etc/systemd/system/topolograph-ospfwatcher.service
+# A topology left running would keep its interfaces and ports after its folder changes;
+# stop.sh also removes the GRE rules containerlab destroy leaves, the deploy adds the current ones back
+stop_names=()
+for name in "${!inode_before[@]}"; do
+    [ "$(stat -c %i "watcher/$name" 2>/dev/null)" != "${inode_before[$name]}" ] || continue
+    stop_names+=("$name")
+done
+if [ ${#stop_names[@]} -gt 0 ]; then
+    # Written before the stop, so a failed or killed one is retried from the saved copies
+    printf '%s\n' "${stop_names[@]}" > watcher/.pending-stop
+    stop_saved "${stop_names[@]}" || { echo "Cannot stop the changed watchers, fix that and run again: nothing new is deployed for them." >&2; exit 1; }
+    rm -f watcher/.pending-stop
+    torn_down=1
+fi
+
+unit=/etc/systemd/system/$unit_name
 # Replaced in one step, so a failed write never leaves a truncated unit
 sed "s|/opt/topolograph/ospfwatcher|$checkout|" onboarding/topolograph-ospfwatcher.service > "$unit.new" && mv "$unit.new" "$unit"
 systemctl daemon-reload
 systemctl enable topolograph-ospfwatcher.service >/dev/null
 echo "Starting the watchers of $checkout"
-systemctl restart topolograph-ospfwatcher.service
+start_stopped
 torn_down=0
 
 [ "$failed" -eq 0 ] || { echo "Some watchers failed to build, see the errors above." >&2; exit 1; }

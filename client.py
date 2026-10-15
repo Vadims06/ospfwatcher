@@ -1,6 +1,7 @@
 import argparse
 import copy
 import enum
+import filecmp
 import ipaddress
 import json
 import os
@@ -35,8 +36,6 @@ def open_private(path):
 
 
 LINUX_INTERFACE_NAME_MAX_LEN = 15
-# Marks the rules a watcher adds, so cleanup never deletes a rule the host or another application owns
-GRE_RULE_OWNER = "-m comment --comment topolograph-ospfwatcher"
 # The host exec line that adds a GRE NAT or FORWARD rule
 GRE_RULE_RE = re.compile(r'RULE="(?P<rule>[^"]+)".*iptables -A (?P<chain>\w+)')
 
@@ -597,6 +596,11 @@ class WATCHER_CONFIG:
                 elif enable_xdp_reply.lower().strip() == 'n':
                     self.enable_xdp = False
     
+    @property
+    def gre_rule_owner(self):
+        """Per watcher, so stopping one never deletes an identical rule of a sibling that shares the router."""
+        return f"-m comment --comment topolograph-ospfwatcher-{self.watcher_folder_name}"
+
     def exec_cmds(self):
         return [
             f'ip netns exec {self.netns_name} ip address add {self.p2p_veth_watcher_ip_w_mask} dev veth1',
@@ -604,10 +608,10 @@ class WATCHER_CONFIG:
             f'ip address add {self.p2p_veth_host_ip_w_mask} dev {self.host_veth}',
             f'ip netns exec {self.netns_name} ip tunnel add gre1 mode gre local {str(self.p2p_veth_watcher_ip_obj)} remote {self.gre_tunnel_network_device_ip} ttl 100',
             f'ip netns exec {self.netns_name} ip address add {self.gre_tunnel_ip_w_mask_watcher} dev gre1',
-            f'bash -c \'RULE="-t nat -p gre {GRE_RULE_OWNER} -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -j SNAT --to-source {self.host_interface_device_ip}"; sudo iptables -C POSTROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A POSTROUTING $$RULE\'',
-            f'bash -c \'RULE="-t nat -p gre {GRE_RULE_OWNER} -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} -j DNAT --to-destination {self.p2p_veth_watcher_ip}"; sudo iptables -C PREROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A PREROUTING $$RULE\'',
-            f'bash -c \'RULE="-t filter -p gre {GRE_RULE_OWNER} -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
-            f'bash -c \'RULE="-t filter -p gre {GRE_RULE_OWNER} -s {self.gre_tunnel_network_device_ip} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
+            f'bash -c \'RULE="-t nat -p gre {self.gre_rule_owner} -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -j SNAT --to-source {self.host_interface_device_ip}"; sudo iptables -C POSTROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A POSTROUTING $$RULE\'',
+            f'bash -c \'RULE="-t nat -p gre {self.gre_rule_owner} -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} -j DNAT --to-destination {self.p2p_veth_watcher_ip}"; sudo iptables -C PREROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A PREROUTING $$RULE\'',
+            f'bash -c \'RULE="-t filter -p gre {self.gre_rule_owner} -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
+            f'bash -c \'RULE="-t filter -p gre {self.gre_rule_owner} -s {self.gre_tunnel_network_device_ip} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
             f'sudo ip netns exec {self.netns_name} ip link set mtu 1476 dev gre1', # 1476 - 24 GRE encap for OSPF MTU match
             f'sudo ip netns exec {self.netns_name} ip link set mtu 1500 dev veth1', # for xdp
             # enable GRE after applying XDP filter
@@ -778,16 +782,31 @@ class WATCHER_CONFIG:
                    and str(config["answers"].get("bgpls_passive_mode")).lower() == "true"]
         if len(passive) > 1:
             return f"Only one passive BGP-LS watcher fits a host, they all listen on port 179: {', '.join(passive)}"
-        names_by_pair = {}
+        configs_by_pair = {}
         for config in configs:
             if config["connection_mode"] != "gre":
                 continue
             pair = (config["answers"].get("gre_tunnel_network_device_ip"), config["answers"].get("host_interface_device_ip"))
-            if pair in names_by_pair:
-                return (f"{names_by_pair[pair]} and {config['name']} both use router {pair[0]} and host {pair[1]}: "
-                        f"inbound GRE would reach only one of them, give each watcher its own router address")
-            names_by_pair[pair] = config["name"]
+            if pair in configs_by_pair:
+                return WATCHER_CONFIG.get_pair_conflict_message(configs_by_pair[pair], config, pair)
+            configs_by_pair[pair] = config
         return ""
+
+    @staticmethod
+    def get_pair_conflict_message(first, second, pair) -> str:
+        """Names the folder of each watcher, so the user knows which one is the old one and how to retire it."""
+        lines = [f"{first['name']} and {second['name']} both use router {pair[0]} and host {pair[1]}: "
+                 f"inbound GRE would reach only one of them."]
+        for config in (first, second):
+            folder_name = WATCHER_CONFIG.get_folder_by_watcher_id(config["watcher_id"])
+            lines.append(f"  {config['name']}: " + (f"{WATCHER_CONFIG.WATCHER_ROOT_FOLDER}/{folder_name} on this host"
+                                                   if folder_name else "not built on this host yet"))
+        lines.append("No watcher was rebuilt. To retire the old watcher, delete it on the Watchers page of Topolograph "
+                     "and run the command of the new one again: its folder moves to "
+                     f"{WATCHER_CONFIG.WATCHER_ROOT_FOLDER}/.removed and its topology stops.")
+        lines.append("To keep both, delete one of them on the Watchers page and add it again with another router "
+                     "GRE address or host address.")
+        return "\n".join(lines)
 
     @classmethod
     def add_watchers_from_answers(cls, answers_path) -> bool:
@@ -846,8 +865,26 @@ class WATCHER_CONFIG:
             if backup_path:
                 os.rename(backup_path, os.path.join(self.watcher_root_folder_path, existing_folder))
             raise
-        if backup_path:
-            shutil.rmtree(backup_path)
+        if not backup_path:
+            return
+        folder_path = os.path.join(self.watcher_root_folder_path, existing_folder)
+        # Same folder back with its inode: configure.sh tells unchanged watchers by it and leaves them running
+        if existing_folder == self.watcher_folder_name and self.is_folder_content_same(self.watcher_folder_path, backup_path):
+            shutil.rmtree(self.watcher_folder_path)
+            os.rename(backup_path, folder_path)
+            return
+        shutil.rmtree(backup_path)
+
+    @staticmethod
+    def is_folder_content_same(new_folder, old_folder) -> bool:
+        """Files the build writes, compared with the previous build; the lab directory of a deploy is ignored."""
+        for root, _, file_names in os.walk(new_folder):
+            for file_name in file_names:
+                new_path = os.path.join(root, file_name)
+                old_path = os.path.join(old_folder, os.path.relpath(new_path, new_folder))
+                if not os.path.isfile(old_path) or not filecmp.cmp(new_path, old_path, shallow=False):
+                    return False
+        return True
 
     def _build_from_answers(self, config):
         self.connection_mode = config["connection_mode"]
