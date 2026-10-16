@@ -61,7 +61,6 @@ class WATCHER_CONFIG:
         ROUTER_NODE_NAME: "vadims06/frr:v10.8_srlg",
         OSPF_FILTER_NODE_NAME: "vadims06/ospf-filter-xdp:v1",
     }
-    FLUENT_BIT_WATCHERS_FOLDER = os.path.join("fluentbit", "watchers")
 
     def __init__(self, watcher_num, protocol="ospf"):
         self.watcher_num = watcher_num
@@ -938,8 +937,10 @@ class WATCHER_CONFIG:
         self._do_save_watcher_config_file(config_yml)
 
     def _write_fluent_bit_output(self, watcher_id, server):
-        """One Fluent Bit input and output per watcher, so each sends its events with its own token."""
-        os.makedirs(self.FLUENT_BIT_WATCHERS_FOLDER, exist_ok=True)
+        """One Fluent Bit input and output per watcher, so each sends its events with its own token.
+
+        Kept in the watcher folder, which configure.sh copies to Fluent Bit, so inputs follow the folders.
+        """
         # A deleted watcher's folder number is reused, so state is keyed by the id, not the folder
         tag = f"onboarding.{watcher_id}"
         fluent_bit_config = {'pipeline': {
@@ -963,17 +964,8 @@ class WATCHER_CONFIG:
                 'header': f"Authorization Bearer {server['watcher_token']}",
             }],
         }}
-        path = os.path.join(self.FLUENT_BIT_WATCHERS_FOLDER, f"{self.watcher_folder_name}.yaml")
-        # Outside the folder backup, so a failed write must never touch the live file
-        temporary_path = f"{path}.tmp"
-        try:
-            with open_private(temporary_path) as f:
-                ruamel_yaml_default_mode.dump(fluent_bit_config, f)
-        except BaseException:
-            if os.path.exists(temporary_path):
-                os.remove(temporary_path)
-            raise
-        os.replace(temporary_path, path)
+        with open_private(os.path.join(self.watcher_folder_path, "fluent-bit.yaml")) as f:
+            ruamel_yaml_default_mode.dump(fluent_bit_config, f)
 
     @classmethod
     def parse_command_args(cls, args):

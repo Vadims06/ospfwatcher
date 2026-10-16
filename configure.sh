@@ -62,6 +62,7 @@ rm -rf "$answers_dir"
 mkdir -p "$answers_dir"
 chmod 700 "$answers_dir"
 torn_down=0
+stopping=""
 images_ready=0
 unit_name=topolograph-ospfwatcher.service
 # A lab is up only while every container of its topology runs, so a crashed node counts as down;
@@ -86,6 +87,7 @@ start_stopped() {
     systemctl is-active --quiet "$unit_name" || { systemctl restart "$unit_name"; return; }
     for folder in watcher/watcher[0-9]*/; do
         [ -d "$folder" ] || continue
+        [ ! -e "${folder}.pending-stop" ] || continue
         is_lab_running "$(basename "$folder")" || down+=("${folder%/}")
     done
     if [ "$(get_inputs_sum)" != "$fluent_inputs_before" ]; then
@@ -103,32 +105,58 @@ on_exit() {
         cp "$checkout/$answers_dir/.env.before" "$checkout/.env"
     fi
     rm -rf "$checkout/$answers_dir"
-    # Saved copies stay while a stop is pending: the next run retries from them
-    [ -e "$checkout/watcher/.pending-stop" ] || rm -rf "$checkout"/watcher/.before.*
+    # An interrupted stop leaves the old folder behind, as a failed one does
+    [ -z "$stopping" ] || leave_pending "$stopping"
+    rm -rf "$checkout"/watcher/.before.*
     find "$checkout/watcher" -maxdepth 1 -type l -name 'watcher[0-9]*' -delete
     [ "$status" -eq 0 ] || [ "$torn_down" -eq 0 ] || start_stopped
 }
+fluent_inputs_before=$(get_inputs_sum)
 trap on_exit EXIT
 trap 'exit 130' INT TERM
 
-# stop_saved <folder>...: stops watchers from their saved configs, as their folders may be gone or replaced.
+# stop_saved <folder>: stops a watcher from its pre-rebuild copy, as its folder may be gone or replaced.
 stop_saved() {
-    local name stop_configs=() status=0
-    for name in "$@"; do
-        # containerlab finds the topology of a running lab by the path it was deployed from
-        [ -e "watcher/$name" ] || ln -s ".before.$name" "watcher/$name"
-        stop_configs+=("watcher/.before.$name/config.yml")
-    done
-    onboarding/stop.sh "${stop_configs[@]}" || status=1
-    find watcher -maxdepth 1 -type l -name 'watcher[0-9]*' -delete
+    local name=$1 status=0
+    # containerlab finds the topology of a running lab by the path it was deployed from
+    [ -e "watcher/$name" ] || ln -s ".before.$name" "watcher/$name"
+    onboarding/stop.sh "watcher/.before.$name/config.yml" || status=1
+    [ ! -L "watcher/$name" ] || rm -f "watcher/$name"
     return $status
 }
+# leave_pending <folder>: brings the old folder back and marks it, so no replacement of its watcher runs
+# before the next configure.sh run has stopped it.
+leave_pending() {
+    local name=$1 watcher_id replacement
+    watcher_id=$(grep -o "watcher_id: '\?[0-9a-f]\{24\}" "watcher/.before.$name/config.yml" | grep -o '[0-9a-f]\{24\}')
+    for replacement in watcher/watcher[0-9]*/; do
+        [ -n "$watcher_id" ] || break
+        if grep -q "watcher_id: '\?$watcher_id" "${replacement}config.yml" 2>/dev/null; then
+            rm -rf "$replacement"
+        fi
+    done
+    rm -rf "watcher/$name"
+    mv "watcher/.before.$name" "watcher/$name"
+    : > "watcher/$name/.pending-stop"
+}
+# Fluent Bit inputs are copied from the folders that exist, so they never name a folder that is gone
+sync_fluent_inputs() {
+    local folder
+    mkdir -p fluentbit/watchers
+    rm -f fluentbit/watchers/*.yaml
+    for folder in watcher/watcher[0-9]*/; do
+        [ -e "${folder}fluent-bit.yaml" ] || continue
+        install -m 600 "${folder}fluent-bit.yaml" "fluentbit/watchers/$(basename "$folder").yaml"
+    done
+}
 # A stop that failed in an earlier run goes first, before the folders change again
-if [ -e watcher/.pending-stop ]; then
-    mapfile -t pending_names < watcher/.pending-stop
-    stop_saved "${pending_names[@]}" || { echo "Cannot stop the watchers left from the previous run, fix that and run again." >&2; exit 1; }
-    rm -rf watcher/.pending-stop watcher/.before.*
-fi
+for marker in watcher/watcher[0-9]*/.pending-stop; do
+    [ -e "$marker" ] || continue
+    folder=$(dirname "$marker")
+    torn_down=1
+    onboarding/stop.sh "$folder/config.yml" || { echo "Cannot stop $folder left from the previous run, fix that and run again." >&2; exit 1; }
+    rm -f "$marker"
+done
 
 # fetch <token> <file>: the watcher's configuration, or a message and exit status 1.
 fetch() {
@@ -205,30 +233,24 @@ for folder in watcher/watcher[0-9]*/; do
     rm -rf "watcher/.before.$(basename "$folder")"
     cp -a "$folder" "watcher/.before.$(basename "$folder")"
 done
-fluent_inputs_before=$(get_inputs_sum)
 
 # A watcher whose build is unchanged gets its own folder back, so the same inode marks it to keep running
 failed=0
 run_client --action add_watcher --answers "$answers_dir/0.json" || failed=1
-# Inputs of folders a rebuild renamed or a deleted watcher left
-for input in fluentbit/watchers/*.yaml; do
-    [ -e "$input" ] || continue
-    [ -d "watcher/$(basename "$input" .yaml)" ] || rm -f "$input"
-done
-
 # A topology left running would keep its interfaces and ports after its folder changes;
 # stop.sh also removes the GRE rules containerlab destroy leaves, the deploy adds the current ones back
-stop_names=()
+unstopped=()
 for name in "${!inode_before[@]}"; do
     [ "$(stat -c %i "watcher/$name" 2>/dev/null)" != "${inode_before[$name]}" ] || continue
-    stop_names+=("$name")
-done
-if [ ${#stop_names[@]} -gt 0 ]; then
-    # Written before the stop, so a failed or killed one is retried from the saved copies
-    printf '%s\n' "${stop_names[@]}" > watcher/.pending-stop
-    stop_saved "${stop_names[@]}" || { echo "Cannot stop the changed watchers, fix that and run again: nothing new is deployed for them." >&2; exit 1; }
-    rm -f watcher/.pending-stop
     torn_down=1
+    stopping=$name
+    stop_saved "$name" || { leave_pending "$name"; unstopped+=("watcher/$name"); }
+    stopping=""
+done
+sync_fluent_inputs
+if [ ${#unstopped[@]} -gt 0 ]; then
+    echo "Cannot stop ${unstopped[*]}, which stays as it is with nothing new for it. Fix that and run configure.sh again." >&2
+    exit 1
 fi
 
 unit=/etc/systemd/system/$unit_name

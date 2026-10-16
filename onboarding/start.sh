@@ -17,6 +17,8 @@ else
 fi
 for config in "${configs[@]}"; do
     [ -e "$config" ] || continue
+    # Its old topology may still run; configure.sh stops it first
+    [ ! -e "$(dirname "$config")/.pending-stop" ] || continue
     containerlab deploy --reconfigure -t "$config" || status=1
 done
 exit $status
