@@ -142,8 +142,14 @@ leave_pending() {
 # Fluent Bit inputs are copied from the folders that exist, so they never name a folder that is gone
 sync_fluent_inputs() {
     local folder
+    local input
     mkdir -p fluentbit/watchers
-    rm -f fluentbit/watchers/*.yaml
+    for input in fluentbit/watchers/*.yaml; do
+        [ -e "$input" ] || continue
+        folder=watcher/$(basename "$input" .yaml)
+        # A folder from before inputs moved into it keeps its central one
+        [ -d "$folder" ] && [ ! -e "$folder/fluent-bit.yaml" ] || rm -f "$input"
+    done
     for folder in watcher/watcher[0-9]*/; do
         [ -e "${folder}fluent-bit.yaml" ] || continue
         install -m 600 "${folder}fluent-bit.yaml" "fluentbit/watchers/$(basename "$folder").yaml"

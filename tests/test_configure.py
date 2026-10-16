@@ -33,7 +33,7 @@ def write_watcher(folder, name, watcher_id, with_marker=False):
         (folder / ".pending-stop").touch()
 
 
-def run_configure(tmp_path, folders, rebuild="", unstoppable="", curl_fails=False):
+def run_configure(tmp_path, folders, rebuild="", unstoppable="", curl_fails=False, legacy=()):
     shutil.copy(REPO_ROOT / "configure.sh", tmp_path / "configure.sh")
     shutil.copytree(REPO_ROOT / "onboarding", tmp_path / "onboarding", dirs_exist_ok=True)
     (tmp_path / "VERSION").write_text("1.0\n")
@@ -44,6 +44,8 @@ def run_configure(tmp_path, folders, rebuild="", unstoppable="", curl_fails=Fals
     for name, (watcher_id, with_marker) in folders.items():
         write_watcher(tmp_path / "watcher" / name, name, watcher_id, with_marker)
         (tmp_path / "fluentbit" / "watchers" / f"{name}.yaml").write_text(f"input of {name}\n")
+        if name in legacy:
+            (tmp_path / "watcher" / name / "fluent-bit.yaml").unlink()
     bin_path = tmp_path / "bin"
     bin_path.mkdir()
     for name, body in FAKES.items():
@@ -93,3 +95,33 @@ def test_pending_stop_is_retried_first(tmp_path, unstoppable, exit_code, marker_
     # A failed retry stops before the registration is even fetched
     assert ("Cannot reach Topolograph" in result.stderr) == (not marker_left)
     assert (OLD in result.stderr) == marker_left
+
+
+def test_input_of_folder_without_its_own_is_kept(tmp_path):
+    result = run_configure(tmp_path, {OLD: ("a" * 24, False)}, legacy=(OLD,))
+
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "fluentbit" / "watchers" / f"{OLD}.yaml").read_text() == f"input of {OLD}\n"
+
+
+def run_stop(tmp_path, docker, iptables):
+    shutil.copytree(REPO_ROOT / "onboarding", tmp_path / "onboarding")
+    config = tmp_path / "config.yml"
+    config.write_text(f'name: {OLD}\n  - RULE="-t nat -s 10.0.0.1 -d 10.0.0.2 -j DNAT"; iptables -A PREROUTING $RULE\n')
+    bin_path = tmp_path / "bin"
+    bin_path.mkdir()
+    for name, body in {**FAKES, "docker": docker, "iptables": iptables}.items():
+        (bin_path / name).write_text(f"#!/bin/sh\n{body}\n")
+        (bin_path / name).chmod(0o755)
+    environment = {**os.environ, "PATH": f"{bin_path}:{os.environ['PATH']}", "LOG_DIR": str(tmp_path), "UNSTOPPABLE": ""}
+    return subprocess.run(["bash", str(tmp_path / "onboarding" / "stop.sh"), str(config)],
+                          env=environment, capture_output=True, text=True)
+
+
+@pytest.mark.parametrize("docker, iptables, exit_code", [
+    ("exit 0", "exit 1", 0),
+    ("exit 1", "exit 1", 1),
+    ("exit 0", 'case "$*" in *-C*) exit 2;; esac; exit 0', 1),
+])
+def test_stop_fails_when_state_cannot_be_read(tmp_path, docker, iptables, exit_code):
+    assert run_stop(tmp_path, docker, iptables).returncode == exit_code

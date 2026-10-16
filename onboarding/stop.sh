@@ -10,14 +10,20 @@ if [ $# -gt 0 ]; then
     for config in "$@"; do
         lab=$(sed -n 's/^name: *//p' "$config")
         # Also a lab that crashed or was stopped by hand: its containers or rules may be left
-        if [ -n "$(docker ps -aq --filter "label=containerlab=$lab")" ]; then
+        containers=$(docker ps -aq --filter "label=containerlab=$lab") || { status=1; continue; }
+        if [ -n "$containers" ]; then
             # A topology that stays up keeps its rules
             containerlab destroy -t "$config" || { status=1; continue; }
         fi
         # The rules are taken from the config, so a sibling's rules and flows stay
         while read -r chain rule; do
-            # Only a rule that is there and stays is a failure; a missing one is already gone
-            ! iptables -w -C "$chain" $rule 2>/dev/null || iptables -w -D "$chain" $rule || status=1
+            # Exit 1 is a missing rule, already gone; any other failure leaves the rule in doubt
+            iptables -w -C "$chain" $rule 2>/dev/null
+            case $? in
+                0) iptables -w -D "$chain" $rule || status=1 ;;
+                1) ;;
+                *) status=1 ;;
+            esac
         done < <(sed -n 's/.*RULE="\([^"]*\)".*iptables -A \([A-Z]*\).*/\2 \1/p' "$config")
         while read -r source destination; do
             conntrack -D -p gre -s "$source" -d "$destination" >/dev/null 2>&1
