@@ -1,0 +1,205 @@
+{
+  "watcher_type": "ospf",
+  "title": "OSPF Watcher",
+  "repo_url": "https://github.com/Vadims06/ospfwatcher",
+  "install_dir": "/opt/topolograph/ospfwatcher",
+  "host_requirements": [
+    "Linux host with Docker, Docker Compose v2 and containerlab",
+    "git, curl and systemd; iptables and conntrack for GRE",
+    "sudo",
+    "Access to Topolograph over HTTP(S)"
+  ],
+  "modes": [
+    {
+      "id": "gre",
+      "title": "GRE",
+      "description": "The watcher forms an OSPF adjacency with one network device over a GRE tunnel and only listens: an XDP filter can drop anything it would advertise beyond the tunnel network.",
+      "router_requirements": [
+        "GRE tunnel to the watcher host IP",
+        "OSPF on the tunnel, point-to-point, MTU 1476"
+      ],
+      "router_examples": [
+        {
+          "vendor": "Cisco IOS-XR",
+          "config": "interface tunnel-ip{gre_tunnel_number}\n ipv4 address {gre_tunnel_ip_w_mask_network_device}\n tunnel source {gre_tunnel_network_device_ip}\n tunnel destination {host_interface_device_ip}\n!\nrouter ospf 1\n area {ospf_area_num}\n  interface tunnel-ip{gre_tunnel_number}\n   network point-to-point"
+        }
+      ]
+    },
+    {
+      "id": "bgpls",
+      "title": "BGP-LS",
+      "description": "The router exports its OSPF database over a BGP-LS session to the watcher. No tunnel and no OSPF adjacency with the network.",
+      "router_requirements": [
+        "BGP-LS (link-state address family) export of the OSPF database",
+        "TCP 179 between the router and the watcher host"
+      ],
+      "router_examples": [
+        {
+          "vendor": "Cisco IOS-XR",
+          "config": "router ospf 1\n distribute link-state\n!\nrouter bgp {bgpls_router_as}\n address-family link-state link-state\n !\n neighbor <watcher-host-ip>\n  remote-as {bgpls_watcher_as}\n  ! for eBGP: ebgp-multihop 255\n  address-family link-state link-state"
+        }
+      ]
+    }
+  ],
+  "fields": [
+    {
+      "id": "bgpls_router_ip",
+      "label": "Router IP address, BGP peer",
+      "diagram_label": "1",
+      "type": "ip",
+      "source": "user",
+      "modes": [
+        "bgpls"
+      ]
+    },
+    {
+      "id": "bgpls_router_as",
+      "label": "Router AS number",
+      "diagram_label": "2",
+      "type": "asn",
+      "source": "user",
+      "modes": [
+        "bgpls"
+      ]
+    },
+    {
+      "id": "bgpls_watcher_as",
+      "label": "Watcher AS number",
+      "diagram_label": "3",
+      "type": "asn",
+      "source": "user",
+      "modes": [
+        "bgpls"
+      ],
+      "help": "A different AS from the router's makes the session eBGP with multihop."
+    },
+    {
+      "id": "bgpls_router_id",
+      "label": "Watcher router-id",
+      "diagram_label": "4",
+      "type": "ipv4",
+      "source": "user",
+      "modes": [
+        "bgpls"
+      ]
+    },
+    {
+      "id": "gre_tunnel_network_device_ip",
+      "label": "Network device IP, tunnel source on the device",
+      "diagram_label": "1",
+      "type": "ipv4",
+      "source": "user",
+      "modes": [
+        "gre"
+      ]
+    },
+    {
+      "id": "gre_tunnel_ip_w_mask_network_device",
+      "label": "GRE tunnel IP on the network device, with mask",
+      "diagram_label": "2",
+      "type": "ip_interface",
+      "source": "user",
+      "modes": [
+        "gre"
+      ]
+    },
+    {
+      "id": "gre_tunnel_ip_w_mask_watcher",
+      "label": "GRE tunnel IP on the watcher, with mask, same subnet",
+      "diagram_label": "3",
+      "type": "ip_interface",
+      "same_network_as": "gre_tunnel_ip_w_mask_network_device",
+      "source": "user",
+      "modes": [
+        "gre"
+      ]
+    },
+    {
+      "id": "gre_tunnel_number",
+      "label": "GRE tunnel number",
+      "diagram_label": "4",
+      "type": "integer",
+      "source": "user",
+      "min": 1,
+      "max": 65535,
+      "modes": [
+        "gre"
+      ]
+    },
+    {
+      "id": "ospf_area_num",
+      "label": "OSPF area",
+      "diagram_label": "5",
+      "type": "ospf_area",
+      "source": "user"
+    },
+    {
+      "id": "host_interface_device_ip",
+      "label": "Watcher host IP, tunnel destination on the device",
+      "diagram_label": "6",
+      "type": "ipv4",
+      "source": "user",
+      "modes": [
+        "gre"
+      ]
+    },
+    {
+      "id": "enable_xdp",
+      "label": "XDP filter: drop anything the watcher would advertise beyond the tunnel network",
+      "type": "boolean",
+      "source": "default",
+      "default": false,
+      "modes": [
+        "gre"
+      ]
+    },
+    {
+      "id": "bgpls_passive_mode",
+      "label": "Passive mode: the router opens the session to TCP 179 of the watcher host",
+      "type": "boolean",
+      "source": "default",
+      "default": false,
+      "modes": [
+        "bgpls"
+      ],
+      "help": "One passive watcher per host, because it takes TCP 179."
+    },
+    {
+      "id": "asn",
+      "label": "AS number where OSPF runs, shown on events",
+      "type": "integer",
+      "source": "default",
+      "default": 0,
+      "min": 0,
+      "max": 4294967295
+    },
+    {
+      "id": "organisation_name",
+      "label": "Organisation name",
+      "type": "string",
+      "source": "default",
+      "default": "",
+      "pattern": "^[a-z0-9-]{0,20}$"
+    },
+    {
+      "id": "registry_prefix",
+      "label": "Docker Hub mirror",
+      "type": "string",
+      "env": "REGISTRY_PREFIX",
+      "source": "default",
+      "default": "",
+      "pattern": "^([A-Za-z0-9.-]+(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*/)?$",
+      "help": "Prefix put before every image, e.g. mirror.example.com:5000/"
+    }
+  ],
+  "commands": [
+    {
+      "title": "Download",
+      "text": "[ -d {install_dir} ] || sudo git clone {repo_url} {install_dir}\ncd {install_dir} && sudo git fetch --tags origin {ref} && sudo git checkout --detach FETCH_HEAD"
+    },
+    {
+      "title": "Configure and run",
+      "text": "sudo ./configure.sh --url {url} --token {token}"
+    }
+  ]
+}

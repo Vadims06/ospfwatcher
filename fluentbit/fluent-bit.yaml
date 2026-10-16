@@ -7,7 +7,7 @@ service:
   daemon: off
   parsers_file: parsers.conf
   http_server: on
-  http_listen: 0.0.0.0
+  http_listen: 127.0.0.1
   http_port: 2020
 
 pipeline:
@@ -38,18 +38,6 @@ pipeline:
         - metadata.exporter fluentbit
 
   outputs:
-    - name: http
-      match: watcher_logs
-      host: ${TOPOLOGRAPH_HOST}
-      port: ${TOPOLOGRAPH_PORT}
-      uri: /websocket
-      http_user: ${TOPOLOGRAPH_WEB_API_USERNAME_EMAIL}
-      http_passwd: ${TOPOLOGRAPH_WEB_API_PASSWORD}
-      format: json
-      json_date_key: "@timestamp"
-      retry_limit: 3
-      tls: off
-
     - name: http
       match: watcher_logs
       host: ${WEBHOOK_HOST}
