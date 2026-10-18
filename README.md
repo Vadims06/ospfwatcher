@@ -7,7 +7,6 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 
 > [!NOTE]
 > Watchers that feed Topolograph are an **Enterprise** feature; Community Topolograph has no watchers. Editions and contact: https://topolograph.com/#editions.
-> A watcher set up by hand (text logs, ELK, Zabbix, Loki, webhooks) stays free and open source and sends nothing to Topolograph.
 
 ## Quick start
 1. Enterprise: in Topolograph open **Add → Watcher**, choose the type (OSPF Watcher) and the mode (GRE or BGP-LS) and fill in the form. The wizard issues a watcher token and shows one install command.
@@ -28,7 +27,7 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
     `configure.sh` checks Docker, Docker Compose, containerlab, curl, git, systemd and root, fetches your answers from Topolograph, builds the watcher with `client.py --answers` and starts it from the `topolograph-ospfwatcher` systemd service, which brings the watchers back after a reboot. All watchers of one checkout share its version: `configure.sh` rebuilds each of them from its own registration.
 3. Configure the router as the watcher page shows. The page shows when the command ran, when data arrived and a link to the graph; once data arrives the watcher shows "Connected".
 
-To run without Topolograph (text logs, ELK, Zabbix, Loki, webhooks), expand **Manual setup** in [How to connect OSPF watcher to real network](#how-to-connect-ospf-watcher-to-real-network). A watcher set up by hand sends nothing to Topolograph; to move one there, see [Moving a watcher installed by hand](#moving-a-watcher-installed-by-hand).
+To run without Topolograph (text logs, ELK, Zabbix, Loki, webhooks), expand **Manual setup** in [How to connect OSPF watcher to real network](#how-to-connect-ospf-watcher-to-real-network). To move a watcher set up by hand to Topolograph, see [Moving a watcher installed by hand](#moving-a-watcher-installed-by-hand).
 
 No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
 
@@ -57,7 +56,7 @@ OSPF Watcher supports two connection modes:
 #### GRE Mode (Traditional)
 The FRR container is isolated in an individual network namespace and establishes an OSPF adjacency over a GRE tunnel with a network device. The **XDP OSPF filter** inspects all outgoing OSPF advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, OSPF Database description (DB) or LSUpdate will be dropped. It prevents the network from populating by unexpected network prefixes.
 
-#### BGP-LS Mode (New)
+#### BGP-LS Mode
 The watcher connects to a network router via BGP-LS (BGP Link-State) protocol. The router must be configured to advertise OSPF topology information via BGP-LS. The watcher uses GoBGP (bgplswatcher) to establish a BGP session and receive BGP-LS updates, which are then processed by the OSPF watcher component. This mode eliminates the need for GRE tunnels and OSPF adjacencies, making it easier to deploy in environments where GRE tunnels are not feasible.
 
 ![](docs/ospfwatcher_plus_topolograph_architecture_v3_xdp_rules.png)  
