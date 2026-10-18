@@ -304,3 +304,18 @@ The stdin plugin is now waiting for input:
 ```
 Add your changes in `./logstash/pipeline` file, stop logstash process via CTRL+C `bin/logstash` and start it again. Add the same log in the watcher's log file and check how logstash works with your new changes.
 
+## Troubleshooting Logstash
+1. Check that `ospf-logstash` from [docker-compose.yml](../docker-compose.yml) is running: `sudo docker ps`.
+2. Uncomment `DEBUG_BOOL="True"` in `.env` and follow `sudo docker logs -f ospf-logstash`.
+3. Copy a line from the watcher log and append it to the same file, `watcher/logs/watcher<num>-....ospf.log`: the Logstash log should print it. If not, check the Logstash container.
+
+## Minimum Logstash version
+ 7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)
+
+> [!NOTE]
+> **HTTP output: Logstash vs Fluent Bit** — the `http` plugins use different `format` options and batching rules. Align the receiver (e.g. Topolograph `/websocket`) with the body shape you send.
+>
+> * **Logstash** ([http output](https://www.elastic.co/guide/en/logstash/current/plugins-outputs-http.html)): `format` is one of `json` (default), `json_batch`, `form`, or `message`. With **`json`**, each request body is typically **one JSON object per event**. With **`json_batch`**, each request sends **one JSON array** containing a whole pipeline batch (common for Logstash-to-Logstash). `content_type` defaults from `format` (e.g. `application/json` for `json` / `json_batch`).
+> * **Fluent Bit** ([http output](https://docs.fluentbit.io/manual/pipeline/outputs/http)): `Format` is one of `json` (default), `json_lines`, `json_stream`, `msgpack`, or `gelf`. With **`json`**, the body is a **JSON array** of records for a flush chunk. **`json_lines`** is newline-delimited JSON (one object per line). How many records appear in one POST is driven mainly by the engine **chunk** and the global **[SERVICE] `Flush`** interval, not by Logstash’s `json` vs `json_batch` switch.
+>
+> Example Fluent Bit pipeline for this repo: [`fluentbit/fluent-bit.yaml`](../fluentbit/fluent-bit.yaml).

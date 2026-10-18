@@ -106,10 +106,10 @@ Each Watcher instance maintains all routes and updates within an isolated networ
 > , it means that OSPF network changes can be shown on the network graph.
 
 ### Functional Role
-![](docs/functional-watcher-role.png)
+![Watcher collects control-plane changes; Topolograph shows the past, the present and the future of the topology](docs/functional-watcher-role.png)
 
 ## Demo
-Instant notifications   
+Instant notifications. The video and the animation below show Topolograph 2.49; the current interface is in [What you see in Topolograph](#what-you-see-in-topolograph).
 [![OSPF Watcher instance notification](./docs/ospfwarcher_socket_demo.png)](https://youtu.be/2IHbxmDVMA0)  
 Click on the image in order zoom it.  
 ![](https://github.com/Vadims06/ospfwatcher/blob/ada2ca86df171ec5f1b550da821f0a8ca1cb1df4/docs/ospf-watcher-demo.gif)
@@ -211,16 +211,20 @@ If you faced with XDP errors - skip it while generating config file or use `--ac
 
 
 ## Troubleshooting
-**Installed from the Monitoring page?** The Monitoring page shows which step is missing: command run, data arrived, graph. `sudo systemctl status topolograph-ospfwatcher` shows whether the watchers started; `401` in `sudo docker logs ospf-fluent-bit` means the token was rotated or the watcher deleted, so copy the command from the watcher page and run it again. The steps below are written for the manual setup.
+Start on the watcher's page in Topolograph (**Monitoring**, then the watcher): it shows which step is missing: the install command ran, data arrived, the graph exists.
+
+On the watcher host an installed watcher lives in `/opt/topolograph/ospfwatcher`:
+* `sudo systemctl status topolograph-ospfwatcher` shows whether the watchers started.
+* `sudo docker logs ospf-fluent-bit` shows delivery to Topolograph. `401` means the watcher's token was rotated or the watcher was deleted: run the command from its watcher page again. `403` means the event names a graph that does not belong to this watcher.
 
 ##### Symptoms
-Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is empty.
+Network changes are not tracked: the watcher log `watcher/logs/watcher<num>-...log` (under `/opt/topolograph/ospfwatcher` for an installed watcher) stays empty. `<num>` is the number in the watcher's folder name: `ls /opt/topolograph/ospfwatcher/watcher/`.
 
 ##### Steps:
 1. Run diagnostic script. It will check **OSPF Watcher** <-> **Network device** connection (iptables, packets from FRR/network device)
 
     ```
-    sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:latest python3 ./client.py --action diagnostic --watcher_num <num>
+    cd /opt/topolograph/ospfwatcher && sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:$(cat VERSION) python3 ./client.py --action diagnostic --watcher_num <num>
     ``` 
 2. Login on FRR.
 
@@ -267,34 +271,18 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
     > Run `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0` on the Linux host to allow GoBGP on port 179 if needed to start goBGP in passive mode.
 
 ##### Symptoms
-Dashboard page is blank. Events are not present on OSPF Monitoring page.
+The watcher log has changes, but Topolograph shows no events.
 ##### Steps:
-OSPF Watcher consists of three services: OSPFd/FRR [1] -> Watcher [2] -> Logstash [3] -> ELK & Zabbix & WebHooks; a watcher installed from the Monitoring page sends to Topolograph through Fluent Bit. Let's start checking each component one by one.
-1. Check if FRR tracks OSPF changes in `./watcher/logs/watcher...log` file (previous case)   
-You should see tracked changes of your network, i.e. here we see that `10.0.0.0/29` network went up at `2023-10-27T07:50:24Z` on `10.10.1.4` router.   
+The chain is: FRR (GRE mode) or bgplswatcher (BGP-LS mode) -> Watcher -> Fluent Bit -> Topolograph.
+1. Check that the watcher log has the change, as in the previous case:
     ```
     2024-07-22T20:24:08Z,watcher-local,network,8.8.0.60/30,changed,old_cost:12,new_cost:-1,10.10.10.5,01Jan2023_00h00m00s_7_hosts,0.0.0.0,65001,external,1
     ```
-2. Check that logstash container from [docker-compose.yml](./docker-compose.yml) is running via `docker ps` command.  
+2. Check that `ospf-fluent-bit` is running (`sudo docker ps`) and that its logs show no `401` or `403` (see above).
 
-    1. Uncomment `DEBUG_BOOL="True"` in `.env` and start continuous logs `docker logs -f logstash`.
-    2. Copy and paste the log from the first step in watcher's log file  `./watcher/logs/watcher#-gre#-ospf.ospf.log`. `docker logs -f logstash` should print the output. If not - check logstash container.
-  
-3. For a watcher installed from the Monitoring page, check that Topolograph accepted the event: the Fluent Bit container logs show no `401` or `403`. `401` means the watcher's token was rotated or revoked: run the command from its watcher page again. `403` means the event names a graph that does not belong to this watcher.
-
+For a watcher that feeds ELK, Zabbix, Loki or webhooks through Logstash, see [Troubleshooting Logstash](docs/exporters.md#troubleshooting-logstash).
 
 ### Minimum version
-#### Logstash
- 7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)
-
-> [!NOTE]
-> **HTTP output: Logstash vs Fluent Bit** — the `http` plugins use different `format` options and batching rules. Align the receiver (e.g. Topolograph `/websocket`) with the body shape you send.
->
-> * **Logstash** ([http output](https://www.elastic.co/guide/en/logstash/current/plugins-outputs-http.html)): `format` is one of `json` (default), `json_batch`, `form`, or `message`. With **`json`**, each request body is typically **one JSON object per event**. With **`json_batch`**, each request sends **one JSON array** containing a whole pipeline batch (common for Logstash-to-Logstash). `content_type` defaults from `format` (e.g. `application/json` for `json` / `json_batch`).
-> * **Fluent Bit** ([http output](https://docs.fluentbit.io/manual/pipeline/outputs/http)): `Format` is one of `json` (default), `json_lines`, `json_stream`, `msgpack`, or `gelf`. With **`json`**, the body is a **JSON array** of records for a flush chunk. **`json_lines`** is newline-delimited JSON (one object per line). How many records appear in one POST is driven mainly by the engine **chunk** and the global **[SERVICE] `Flush`** interval, not by Logstash’s `json` vs `json_batch` switch.
->
-> Example Fluent Bit pipeline for this repo: [`fluentbit/fluent-bit.yaml`](./fluentbit/fluent-bit.yaml).
-
 #### scapy
 2.5.0 works, 2.6.0 raises an exception
 
