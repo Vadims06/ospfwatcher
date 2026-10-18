@@ -12,19 +12,19 @@ OSPF Watcher streams OSPF topology changes into Topolograph: every adjacency, co
 *Events on the graph and on the timeline: Graphs, open a graph, **Events** tab.*
 
 ## What you see in Topolograph
-**Monitoring.** Events as a histogram by category over the period you pick, with the events table below. Open **Monitoring** in the top menu.
+**Monitoring.** Events as a histogram by category over the period you pick, with the events table below (here: the 13-router demo, events of pe14, pe15, core31 and core10). Open **Monitoring** in the top menu.
 ![Monitoring page: event histogram and events table](docs/ui/monitoring-histogram.png)
 
 **Events by router.** The same period grouped by the router that detected the change. In a graph, open the **Events** tab and choose **By router**.
 ![Events by router](docs/ui/events-by-router.png)
 
-**Event search.** The events table filtered by router, event type and period. Here: router `r6.example`, adjacency down events, a chosen period.
+**Event search.** The events table filtered by router, event type and period. On the **Monitoring** page here: router `pe15`, adjacency down events, a chosen period.
 ![Event search: router, event type and period filters](docs/ui/event-search.png)
 
-**The graph at the moment of an event.** Click an event to open the graph as it was at that time. After the adjacency down event pe15 has no link to core110. **Back to live** returns to the current graph.
+**The graph at the moment of an event.** Click an event in the **Events** tab to open the graph as it was at that time. After the adjacency down event (pe15, core110) the link between them is drawn as down. **Back to live** returns to the current graph.
 ![Graph at the time of an adjacency down event](docs/ui/graph-at-event.png)
 
-**A link cost change on the graph.** The changed link is highlighted: the cost between pe14 and core110 went from 10 to 14.
+**A link cost change on the graph.** The selected event row (pe14, core110, 10 → 14) is in the **Events** tab and the changed link is highlighted on the graph: the cost between pe14 and core110 went from 10 to 14.
 ![Link cost change highlighted on the graph](docs/ui/cost-change-on-graph.png)
 
 ## Quick start
