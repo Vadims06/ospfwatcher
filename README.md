@@ -89,7 +89,7 @@ Subnet, metric and link up/down events on the timeline and on the topology. Red 
 
 ## Watcher Heartbeats
 
-A watcher added on Topolograph's Watchers page sends heartbeats with its own token and needs no setup.
+A watcher added on Topolograph's Monitoring page sends heartbeats with its own token and needs no setup.
 
 | Status | Meaning |
 |--------|---------|
@@ -151,15 +151,15 @@ sudo clab deploy --topo ./containerlab/frr01/frr01.clab.yml
 ```   
 
 ## How to connect OSPF watcher to real network  
-Table below shows different options of possible setups, starting from the bare minimum in case of running Containerlab for testing and ending with maximum setup size with Watcher, Topolograph and ELK. Only a watcher installed from Topolograph's Watchers page sends to Topolograph, which gives setup **№4**. A watcher set up by hand keeps text logs and feeds ELK, Zabbix, Loki and webhooks. 
+Table below shows different options of possible setups, starting from the bare minimum in case of running Containerlab for testing and ending with maximum setup size with Watcher, Topolograph and ELK. Only a watcher installed from Topolograph's Monitoring page sends to Topolograph, which gives setup **№4**. A watcher set up by hand keeps text logs and feeds ELK, Zabbix, Loki and webhooks. 
 | № | Deployment size | Compose files | Text logs | View on map | Zabbix / HTTP / Messengers | Search events |
 |---|----------------|---------------|-----------|-------------|---------------------------|---------------|
 | 1 | Bare minimum (Containerlab) | 0 | + | − | − | − |
 | 2 | Manual setup, no Topolograph, ELK **disabled** | 1 | + | − | + | − |
 | 3 | Manual setup, no Topolograph, ELK **enabled** | 2 | + | − | + | + |
-| 4 | Enterprise: installed from Topolograph's Watchers page: Topolograph + **Fluent Bit** | 2 | + | + | HTTP/Webhook only | − |
+| 4 | Enterprise: installed from Topolograph's Monitoring page: Topolograph + **Fluent Bit** | 2 | + | + | HTTP/Webhook only | − |
 
-#### Install from Topolograph's Watchers page (Enterprise)
+#### Install from Topolograph's Monitoring page (Enterprise)
 1. Choose a Linux host with Docker, Docker Compose v2, [containerlab](https://containerlab.dev/install/), curl and git; GRE mode also needs iptables and conntrack.
 2. Launch your own Topolograph with [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or use the public https://topolograph.com.
 3. Open **Add → Watcher**, pick GRE or BGP-LS, fill in the form and run the two command blocks it shows on the host, as in [Quick start](#quick-start). Topolograph issues a token for this watcher only; Fluent Bit sends its events with that token.
@@ -170,7 +170,7 @@ To add another watcher on the same host, repeat step 3: every watcher of the che
 #### Moving a watcher installed by hand
 A watcher set up by hand does not reach Topolograph. To move it there:
 1. Stop it in its old checkout with `sudo containerlab destroy -t watcher/<watcher folder>/config.yml` and move that folder out of the checkout. Two GRE watchers towards one router from one host cannot run at the same time.
-2. Add it on the Watchers page with the same answers and run the command the page shows.
+2. Add it on the Monitoring page with the same answers and run the command the page shows.
 
 <details>
 <summary><b>Manual setup</b> without Topolograph (text logs, ELK, Zabbix, Loki, webhooks)</summary>
@@ -269,7 +269,7 @@ tunnel source <router-ip>
 tunnel destination <host-ip>
 ip ospf network type point-to-point
 ```
-With the manual setup, set the GRE tunnel network where <GRE tunnel ip address> is placed in `quagga/config/ospfd.conf`; the Watchers page does it for you.  
+With the manual setup, set the GRE tunnel network where <GRE tunnel ip address> is placed in `quagga/config/ospfd.conf`; the Monitoring page does it for you.  
 
 For BGP-LS mode, export the OSPF database to the watcher. An example for Cisco IOS-XR
 ```bash
@@ -442,7 +442,7 @@ Currently XDP was tested on Ubuntu 18,20 Kernel 5.4.0-204-generic.
 If you faced with XDP errors - skip it while generating config file or use `--action disable_xdp` as it mentioned in the example above.
 
 ## Troubleshooting
-**Installed from the Watchers page?** The watcher page shows which step is missing: command run, data arrived, graph. `sudo systemctl status topolograph-ospfwatcher` shows whether the watchers started; `401` in `sudo docker logs ospf-fluent-bit` means the token was rotated or the watcher deleted, so copy the command from the watcher page and run it again. The steps below are written for the manual setup.
+**Installed from the Monitoring page?** The Monitoring page shows which step is missing: command run, data arrived, graph. `sudo systemctl status topolograph-ospfwatcher` shows whether the watchers started; `401` in `sudo docker logs ospf-fluent-bit` means the token was rotated or the watcher deleted, so copy the command from the watcher page and run it again. The steps below are written for the manual setup.
 
 ##### Symptoms
 Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is empty.
@@ -500,7 +500,7 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
 ##### Symptoms
 Dashboard page is blank. Events are not present on OSPF Monitoring page.
 ##### Steps:
-OSPF Watcher consists of three services: OSPFd/FRR [1] -> Watcher [2] -> Logstash [3] -> ELK & Zabbix & WebHooks; a watcher installed from the Watchers page sends to Topolograph through Fluent Bit. Let's start checking each component one by one.
+OSPF Watcher consists of three services: OSPFd/FRR [1] -> Watcher [2] -> Logstash [3] -> ELK & Zabbix & WebHooks; a watcher installed from the Monitoring page sends to Topolograph through Fluent Bit. Let's start checking each component one by one.
 1. Check if FRR tracks OSPF changes in `./watcher/logs/watcher...log` file (previous case)   
 You should see tracked changes of your network, i.e. here we see that `10.0.0.0/29` network went up at `2023-10-27T07:50:24Z` on `10.10.1.4` router.   
     ```
@@ -511,7 +511,7 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
     1. Uncomment `DEBUG_BOOL="True"` in `.env` and start continuous logs `docker logs -f logstash`.
     2. Copy and paste the log from the first step in watcher's log file  `./watcher/logs/watcher#-gre#-ospf.ospf.log`. `docker logs -f logstash` should print the output. If not - check logstash container.
   
-3. For a watcher installed from the Watchers page, check that Topolograph accepted the event: the Fluent Bit container logs show no `401` or `403`. `401` means the watcher's token was rotated or revoked: run the command from its watcher page again. `403` means the event names a graph that does not belong to this watcher. A watcher set up by hand sends nothing to Topolograph.
+3. For a watcher installed from the Monitoring page, check that Topolograph accepted the event: the Fluent Bit container logs show no `401` or `403`. `401` means the watcher's token was rotated or revoked: run the command from its watcher page again. `403` means the event names a graph that does not belong to this watcher. A watcher set up by hand sends nothing to Topolograph.
 
 ##### Development   
 Logstash pipeline development.
