@@ -2,8 +2,6 @@
 OSPF Watcher streams OSPF topology changes into Topolograph: every adjacency, cost and prefix change appears on the graph and on its timeline.
 
 > [!NOTE]
-> Watchers that feed Topolograph are an **Enterprise** feature; Community Topolograph has no watchers. Editions and contact: https://topolograph.com/#editions.
-
 > [!NOTE]
 > Tracking OSPF topology changes via **BGP-LS** is **supported starting from Docker image `vadims06/ospf-watcher:v3.1.0`**.
 > For older images, BGP-LS support is not available.
@@ -301,3 +299,5 @@ For a watcher that feeds ELK, Zabbix, Loki or webhooks through Logstash, see [Tr
  Elastic search was used with Basic ELK license.  
 
 [Other exports (ELK, Zabbix, Loki, webhooks)](docs/exporters.md)
+
+> Watchers that feed Topolograph are an **Enterprise** feature; Community Topolograph has no watchers. Editions and contact: https://topolograph.com/#editions.
