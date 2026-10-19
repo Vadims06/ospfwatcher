@@ -67,6 +67,15 @@ To move a watcher set up by hand to Topolograph:
 
 The manual setup is described in [docs/exporters.md](docs/exporters.md).
 
+### Removing a watcher
+Deleting a watcher in Topolograph revokes its token; its containers keep running on the host until you stop them. To remove one watcher of an installed checkout:
+```
+cd /opt/topolograph/ospfwatcher
+sudo onboarding/stop.sh watcher/<watcher folder>/config.yml
+sudo mkdir -p watcher/.removed && sudo mv watcher/<watcher folder> watcher/.removed/
+```
+To remove every watcher of the host: `sudo systemctl disable --now topolograph-ospfwatcher`. Both also remove the GRE rules and connection-tracking entries that `containerlab destroy` leaves behind.
+
 ## Logged topology changes:
 * OSPF neighbor adjacency Up/Down
 * OSPF link cost changes
@@ -213,7 +222,7 @@ Start on the watcher's page in Topolograph (**Monitoring**, then the watcher): i
 
 On the watcher host an installed watcher lives in `/opt/topolograph/ospfwatcher`:
 * `sudo systemctl status topolograph-ospfwatcher` shows whether the watchers started.
-* `sudo docker logs ospf-fluent-bit` shows delivery to Topolograph. `401` means the watcher's token was rotated or the watcher was deleted: run the command from its watcher page again. `403` means the event names a graph that does not belong to this watcher.
+* `sudo docker logs ospf-fluent-bit` shows delivery to Topolograph. `401` means the watcher's token was rotated: run the command from its watcher page again. A deleted watcher gets `401` too: remove it from the host, see [Removing a watcher](#removing-a-watcher). `403` means the event names a graph that does not belong to this watcher.
 
 ##### Symptoms
 Network changes are not tracked: the watcher log `watcher/logs/watcher<num>-...log` (under `/opt/topolograph/ospfwatcher` for an installed watcher) stays empty. `<num>` is the number in the watcher's folder name: `ls /opt/topolograph/ospfwatcher/watcher/`.
