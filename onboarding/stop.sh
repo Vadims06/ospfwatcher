@@ -25,7 +25,9 @@ if [ $# -gt 0 ]; then
                 *) status=1 ;;
             esac
         done < <(sed -n 's/.*RULE="\([^"]*\)".*iptables -A \([A-Z]*\).*/\2 \1/p' "$config")
-        onboarding/clear-gre-flows.sh "$config"
+        while read -r source destination; do
+            conntrack -D -p gre -s "$source" -d "$destination" >/dev/null 2>&1
+        done < <(sed -n 's/.*RULE="-t nat .* -s \([0-9.]*\) -d \([0-9.]*\) .*/\1 \2/p' "$config")
     done
     exit $status
 fi
