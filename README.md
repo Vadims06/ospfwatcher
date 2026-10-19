@@ -1,5 +1,5 @@
 # OSPF Topology Watcher
-OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers. It listens passively to the OSPF control plane, either over its own OSPF adjacency on a GRE tunnel (GRE mode) or through BGP-LS updates from a router (BGP-LS mode). It sends the topology and every change to **Topolograph**: each adjacency, cost and prefix change appears on the graph and on its timeline. Events can also be exported through Logstash to **ELK**, **Zabbix**, **Loki** and **webhooks**.
+OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers. It listens passively to the OSPF control plane, either over its own OSPF adjacency on a GRE tunnel (GRE mode) or through BGP-LS updates from a router (BGP-LS mode). It sends the topology and every change to **Topolograph**: each adjacency, cost and prefix change appears on the graph and on its timeline.
 
 > [!NOTE]
 > Tracking OSPF topology changes via **BGP-LS** is **supported starting from Docker image `vadims06/ospf-watcher:v3.1.0`**.
