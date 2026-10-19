@@ -19,6 +19,8 @@ for config in "${configs[@]}"; do
     [ -e "$config" ] || continue
     # Its old topology may still run; configure.sh stops it first
     [ ! -e "$(dirname "$config")/.pending-stop" ] || continue
-    containerlab deploy --reconfigure -t "$config" || status=1
+    containerlab deploy --reconfigure -t "$config" || { status=1; continue; }
+    # A router that sent GRE before the deploy added the rules holds a flow that bypasses them
+    onboarding/clear-gre-flows.sh "$config"
 done
 exit $status
