@@ -8,6 +8,7 @@ topology:
       gre_tunnel_network_device_ip: {{gre_tunnel_network_device_ip}}
       gre_tunnel_ip_w_mask_network_device: {{gre_tunnel_ip_w_mask_network_device}}
       gre_tunnel_ip_w_mask_watcher: {{gre_tunnel_ip_w_mask_watcher}}
+      host_interface_device_ip: {{host_interface_device_ip}}
       ospf_area_num: {{area_num}}
       asn: {{asn}}
       organisation_name: {{organisation_name}}

@@ -16,9 +16,9 @@ fail() {
 grep -qx "WATCHER_VERSION=$version" .env.template || fail ".env.template WATCHER_VERSION differs from VERSION $version"
 [ -z "$tag" ] || [ "$tag" = "$version" ] || fail "tag $tag differs from VERSION $version"
 
-# Services built locally have no registry image to check
-images=$(WATCHER_VERSION=$version docker compose --profile '*' config --format json 2>/dev/null \
-    | jq -r '.services[] | select(has("build") | not) | .image') || fail "docker compose config failed"
+# Services built locally have no registry image to check. Each step is captured on its own so a failure shows.
+compose_json=$(WATCHER_VERSION=$version docker compose --profile '*' config --format json) || fail "docker compose config failed"
+images=$(printf '%s' "$compose_json" | jq -r '.services[] | select(has("build") | not) | .image') || fail "reading the compose images failed"
 images="$images
 $watcher_image"
 

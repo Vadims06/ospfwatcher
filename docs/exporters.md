@@ -126,11 +126,11 @@ BGP-LS mode:
 * `connection_mode` - `gre` or `bgpls`.
 * `gre_tunnel_network_device_ip` - the router's own IPv4 address the GRE tunnel ends on; `host_interface_device_ip` - this host's IPv4 address the router sends GRE to. They must differ.
 * `gre_tunnel_ip_w_mask_network_device` and `gre_tunnel_ip_w_mask_watcher` - the two tunnel addresses with their mask; they must be in one network and differ from each other and from the two outer addresses.
-* `gre_tunnel_number` - a positive number that names the host-side interface (`ospf<watcher number>-gre<tunnel number>`, at most 15 characters).
+* `gre_tunnel_number` - a number from 1 to 65535 that names the host-side interface (`ospf<watcher number>-gre<tunnel number>`, at most 15 characters).
 * `ospf_area_num` - the area, a number or dotted form such as `0` or `63.0.0.0`.
 * `is_filter_enabled` - `true` attaches the announcement filter, `false` leaves the tunnel unfiltered. Change it and run `render` again to switch.
-* `bgpls_router_ip`, `bgpls_router_as`, `bgpls_watcher_as`, `bgpls_router_id` - the BGP peer and the watcher's AS and router id; different AS numbers make the session eBGP with multihop TTL 255. `bgpls_passive_mode` - `true` waits for the router to connect, and only one passive BGP-LS watcher fits a host (port 179).
-* `organisation_name`, `asn` - labels that go to the event logs.
+* `bgpls_router_ip`, `bgpls_router_as`, `bgpls_watcher_as`, `bgpls_router_id` - the BGP peer and the watcher's AS and router id; AS numbers are 1 to 4294967295, and different ones make the session eBGP with multihop TTL 255. `bgpls_passive_mode` - `true` waits for the router to connect, and only one passive BGP-LS watcher fits a host (port 179).
+* `organisation_name` (up to 20 lowercase letters, digits or `-`) and `asn` (0 to 4294967295) - labels that go to the event logs.
 * Without a `server` block events stay in the local logs and the exporters set in `.env`. Topolograph's own answers add `server` (`topolograph_host`, `topolograph_port`, `topolograph_tls`, `watcher_token`) and `siblings`; a hand-written file needs neither.
 
 `render` creates:
