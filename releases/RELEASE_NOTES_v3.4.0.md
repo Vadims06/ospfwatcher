@@ -15,6 +15,11 @@ The filter node no longer needs host networking.
 * The `--answers` key `enable_xdp` is now `is_filter_enabled`.
 * The prompt "Enable XDP?" is now "Enable announcement filter?".
 
+**Fail closed, off by default**
+The filter is off by default. With it on, the filter node brings `gre1` up after
+attaching, so if it cannot attach there is no adjacency (fix the cause or run
+`--action disable_filter`). It needs kernel 5.4 or newer; tested on 5.15.
+
 **Known limit**
 The watcher forwards no LSAs of other routers, so a network device that rebooted
 cannot get them from the watcher.
