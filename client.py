@@ -22,8 +22,8 @@ ruamel_yaml_default_mode.width = 2048  # type: ignore
 class ACTIONS(enum.Enum):
     ADD_WATCHER = "add_watcher"
     DIAGNOSTIC = "diagnostic"
-    ENABLE_XDP = "enable_xdp"
-    DISABLE_XDP = "disable_xdp"
+    ENABLE_FILTER = "enable_filter"
+    DISABLE_FILTER = "disable_filter"
     PRINT_GRE_CLEANUP = "print_gre_cleanup"
     PRINT_IMAGES = "print_images"
 
@@ -48,7 +48,7 @@ class WATCHER_CONFIG:
     ROUTER_NODE_NAME = "router"
     WATCHER_NODE_NAME = "ospf-watcher"
     OSPF_FILTER_NODE_NAME = "receive_only_filter"
-    OSPF_FILTER_NODE_IMAGE = "vadims06/ospf-filter-xdp:latest"
+    OSPF_FILTER_NODE_IMAGE = "vadims06/ospf-filter:latest"
     LOGROTATION_NODE_NAME = "logrotation"
     LOGROTATION_IMAGE = "vadims06/docker-logrotate:v1.0.0"
     BGPLSWATCHER_NODE_NAME = "bgplswatcher"
@@ -59,7 +59,7 @@ class WATCHER_CONFIG:
         BGPLSWATCHER_NODE_NAME: "vadims06/bgplswatcher:v1.0.4",
         LOGROTATION_NODE_NAME: LOGROTATION_IMAGE,
         ROUTER_NODE_NAME: "vadims06/frr:v10.8_srlg",
-        OSPF_FILTER_NODE_NAME: "vadims06/ospf-filter-xdp:v1",
+        OSPF_FILTER_NODE_NAME: "vadims06/ospf-filter:v1",
     }
 
     def __init__(self, watcher_num, protocol="ospf"):
@@ -78,7 +78,7 @@ class WATCHER_CONFIG:
         self.organisation_name = ""
         self._host_veth = ""
         self.watcher_name = ""
-        self.enable_xdp: bool = False
+        self.is_filter_enabled: bool = False
         # BGP-LS specific attributes (mirrors IS-IS watcher)
         self.bgpls_router_ip = ""
         self.bgpls_router_as = 0
@@ -361,6 +361,7 @@ class WATCHER_CONFIG:
             tunnel_subnet_w_digit_mask=str(self.tunnel_subnet_w_digit_mask),
             area_num=str(self.ospf_area_num),
             watcher_name=self.watcher_folder_name,
+            router_id=self.router_id,
         )
         with open(os.path.join(self.router_folder_path, "frr.conf"), "w") as f:
             f.write(frr_config)
@@ -396,19 +397,51 @@ class WATCHER_CONFIG:
         # Logrotation
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME]['image'] = self.LOGROTATION_IMAGE
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME].setdefault('binds', []).append(f"../logs/{self.watcher_log_file_name}:/logs/watcher.log")
-        # OSPF XDP filter, listen only. Not ready right now
-        if self.enable_xdp:
-            watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['image'] = self.OSPF_FILTER_NODE_IMAGE
-            watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['network-mode'] = "host"
-            watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
-        else:
-            del watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]
-            for d in watcher_config_yml['topology']['nodes']['h2']['stages']['create']['wait-for']:
-                if d.get("node") == self.OSPF_FILTER_NODE_NAME:
-                    d['node'] = 'h1'
-        # Enable GRE after XDP filter
-        watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
+        self._apply_filter_mode(watcher_config_yml)
         self._do_save_watcher_config_file(watcher_config_yml)
+
+    @property
+    def router_id(self) -> str:
+        """FRR derives the router id from the highest address unless pinned; the filter must know it."""
+        return self.do_check_ip(self.gre_tunnel_ip_w_mask_watcher)
+
+    def _set_filter_node(self, clab_config) -> None:
+        node = clab_config['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]
+        tunnel_network = ipaddress.ip_interface(self.gre_tunnel_ip_w_mask_watcher).network
+        node['image'] = self.OSPF_FILTER_NODE_IMAGE
+        node['network-mode'] = f"container:{self.ROUTER_NODE_NAME}"
+        node['env'] = {
+            'ROUTER_ID': self.router_id,
+            'TUNNEL_NETWORK': str(tunnel_network.network_address),
+            'TUNNEL_PREFIX_LEN': str(tunnel_network.prefixlen),
+        }
+
+    def _apply_filter_mode(self, clab_config) -> None:
+        """With the filter the filter node brings gre1 up, so no filter means no adjacency."""
+        nodes = clab_config['topology']['nodes']
+        template_nodes = self.watcher_config_template_yml['topology']['nodes']
+        if self.is_filter_enabled:
+            nodes[self.OSPF_FILTER_NODE_NAME] = copy.deepcopy(template_nodes[self.OSPF_FILTER_NODE_NAME])
+            self._set_filter_node(clab_config)
+            nodes.pop('h2', None)
+            gre_up_node = {'node': self.OSPF_FILTER_NODE_NAME, 'stage': 'exit'}
+        else:
+            nodes.pop(self.OSPF_FILTER_NODE_NAME, None)
+            nodes['h2'] = copy.deepcopy(template_nodes['h2'])
+            nodes['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
+            nodes['h2']['stages']['create']['wait-for'] = [{'node': 'h1', 'stage': 'configure'}]
+            gre_up_node = {'node': 'h2', 'stage': 'create'}
+        nodes[self.WATCHER_NODE_NAME]['stages']['create']['wait-for'] = [gre_up_node]
+
+    def _ensure_router_id_in_frr_conf(self) -> None:
+        """Watchers created before the filter pinned no router id."""
+        frr_conf_path = os.path.join(self.router_folder_path, "frr.conf")
+        with open(frr_conf_path) as f:
+            frr_conf = f.read()
+        if "ospf router-id" in frr_conf:
+            return
+        with open(frr_conf_path, "w") as f:
+            f.write(frr_conf.replace("router ospf\n", f"router ospf\nospf router-id {self.router_id}\n", 1))
 
     def _do_save_watcher_config_file(self, _config):
         with open_private(self.watcher_config_file_path) as f:
@@ -523,8 +556,8 @@ class WATCHER_CONFIG:
         self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "ospfwatcher-demo"
-        # XDP is not used in BGP-LS mode
-        self.enable_xdp = False
+        # the announcement filter is not used in BGP-LS mode
+        self.is_filter_enabled = False
 
     def add_watcher_dialog(self):
         # Connection mode should already be set by add_watcher
@@ -584,16 +617,16 @@ class WATCHER_CONFIG:
         self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "ospfwatcher-demo"
-        self.enable_xdp = None
-        while self.enable_xdp is None:
-            enable_xdp_reply = input("Enable XDP? [y/N] ")
-            if not enable_xdp_reply:
-                self.enable_xdp = False
+        self.is_filter_enabled = None
+        while self.is_filter_enabled is None:
+            enable_filter_reply = input("Enable announcement filter? [y/N] ")
+            if not enable_filter_reply:
+                self.is_filter_enabled = False
             else:
-                if enable_xdp_reply.lower().strip() == 'y':
-                    self.enable_xdp = True
-                elif enable_xdp_reply.lower().strip() == 'n':
-                    self.enable_xdp = False
+                if enable_filter_reply.lower().strip() == 'y':
+                    self.is_filter_enabled = True
+                elif enable_filter_reply.lower().strip() == 'n':
+                    self.is_filter_enabled = False
     
     @property
     def gre_rule_owner(self):
@@ -612,8 +645,8 @@ class WATCHER_CONFIG:
             f'bash -c \'RULE="-t filter -p gre {self.gre_rule_owner} -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
             f'bash -c \'RULE="-t filter -p gre {self.gre_rule_owner} -s {self.gre_tunnel_network_device_ip} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
             f'sudo ip netns exec {self.netns_name} ip link set mtu 1476 dev gre1', # 1476 - 24 GRE encap for OSPF MTU match
-            f'sudo ip netns exec {self.netns_name} ip link set mtu 1500 dev veth1', # for xdp
-            # enable GRE after applying XDP filter
+            f'sudo ip netns exec {self.netns_name} ip link set mtu 1500 dev veth1',
+            # enable GRE after applying the announcement filter
             # f'sudo ip netns exec {self.netns_name} ip link set up dev gre1',
             f'sudo ip link set mtu 1500 dev {self.host_veth}',
             f'sudo conntrack -D --dst {self.gre_tunnel_network_device_ip} -p 47',
@@ -1043,31 +1076,26 @@ class WATCHER_CONFIG:
         diag_watcher_host.is_ospf_available()
         diag_watcher_host.ospf_mtu_match_check()
 
-    def enable_xdp(self):
+    def enable_filter(self):
         self.import_from(watcher_num=args.watcher_num)
         current_clab_config = self.watcher_config_file_yml
         if not current_clab_config:
             raise ValueError(f"config file for watcher #{args.watcher_num} was not found")
-        current_clab_config['topology']['nodes'].setdefault(self.OSPF_FILTER_NODE_NAME, dict()).update( copy.deepcopy(self.watcher_config_template_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]) )
-        current_clab_config['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['image'] = self.OSPF_FILTER_NODE_IMAGE
-        current_clab_config['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['network-mode'] = "host"
-        current_clab_config['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
-
-        current_clab_config['topology']['nodes']['h2'].setdefault('stages', dict()).update( copy.deepcopy(self.watcher_config_template_yml['topology']['nodes']['h2']['stages']) )
+        self.is_filter_enabled = True
+        self._apply_filter_mode(current_clab_config)
+        self._ensure_router_id_in_frr_conf()
         self._do_save_watcher_config_file(current_clab_config)
-        print("XDP enabled")
+        print("Announcement filter enabled")
 
-    def disable_xdp(self):
+    def disable_filter(self):
         self.import_from(watcher_num=args.watcher_num)
         current_clab_config = self.watcher_config_file_yml
         if not current_clab_config:
             raise ValueError(f"config file for watcher #{args.watcher_num} was not found")
-        del current_clab_config['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]
-        for d in current_clab_config['topology']['nodes']['h2']['stages']['create']['wait-for']:
-            if d.get("node") == self.OSPF_FILTER_NODE_NAME:
-                d['node'] = 'h1'
+        self.is_filter_enabled = False
+        self._apply_filter_mode(current_clab_config)
         self._do_save_watcher_config_file(current_clab_config)
-        print("XDP disabled")
+        print("Announcement filter disabled")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -1078,7 +1106,7 @@ if __name__ == '__main__':
         )
     )
     parser.add_argument(
-        "--action", required=True, help="Options: add_watcher, enable_xdp, disable_xdp, diagnostic"
+        "--action", required=True, help="Options: add_watcher, enable_filter, disable_filter, diagnostic"
     )
     parser.add_argument(
         "--watcher_num", required=False, default=0, type=int, help="Number of watcher"
