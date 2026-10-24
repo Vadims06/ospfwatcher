@@ -1,0 +1,19 @@
+[global.config]
+  as = {{bgpls_watcher_as}}
+  router-id = "{{bgpls_router_id}}"
+  topolograph-watcher-endpoint = "localhost:{{bgpls_grpc_port}}"
+  wait_sec_before_send_topology = {{wait_sec_before_send_topology}}
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "{{bgpls_router_ip}}"
+    peer-as = {{bgpls_router_as}}
+    topolograph-watcher-endpoint = "localhost:{{bgpls_grpc_port}}"
+{{#passive}}
+    passive-mode = true
+{{/passive}}
+{{#multihop}}
+  [neighbors.ebgp-multihop.config]
+    enabled = true
+    multihop-ttl = 255
+{{/multihop}}
