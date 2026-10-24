@@ -36,7 +36,7 @@ topology:
         LOGROTATE_CRON: "0 0 * * *"
     router:
       kind: linux
-      image: vadims06/frr:v10.8_srlg
+      image: vadims06/frr:v10.8_stable
       binds:
         - router/daemons:/etc/frr/daemons
         - router/frr.conf:/etc/frr/frr.conf
