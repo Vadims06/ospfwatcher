@@ -1,5 +1,6 @@
 """Runs crafted gre1-egress packets through the compiled filter with bpftool prog run."""
 import json
+import os
 import struct
 import subprocess
 import sys
@@ -16,10 +17,6 @@ TUNNEL_MASK = "255.255.255.0"
 PASS, DROP = 0, 2  # TC_ACT_OK, TC_ACT_SHOT
 REASONS = ["MALFORMED", "FRAGMENT", "LSA_COUNT", "LSA_TYPE", "LSA_ORIGIN", "LSA_FLAGS",
            "LSA_LENGTH", "LINK_TYPE", "FOREIGN_STUB", "P2P_COUNT"]
-
-
-def ip_to_int(address):
-    return struct.unpack(">I", bytes(map(int, address.split("."))))[0]
 
 
 def router_lsa(links, adv=WATCHER, flags=0, lsa_id=None):
@@ -96,33 +93,38 @@ def run(command):
     return subprocess.run(command, check=True, capture_output=True, text=True).stdout
 
 
-def read_counters():
-    dump = json.loads(run(["bpftool", "-j", "map", "dump", "name", "drop_counters"]))
+def attach_with_entrypoint():
+    """Attaches with the production entrypoint and tc, then returns the program and map ids."""
+    run(["ip", "link", "add", "filtertest0", "type", "veth", "peer", "name", "filtertest1"])
+    environment = {"FILTER_INTERFACE": "filtertest0", "ROUTER_ID": WATCHER, "TUNNEL_NET": TUNNEL_NET,
+                   "TUNNEL_MASK": TUNNEL_MASK, "PATH": os.environ["PATH"]}
+    subprocess.run(["/attach_filter.sh"], check=True, capture_output=True, env=environment)
+    prog_id = int(run(["tc", "filter", "show", "dev", "filtertest0", "egress"]).split(" id ")[1].split()[0])
+    map_id = json.loads(run(["bpftool", "-j", "prog", "show", "id", str(prog_id)]))["map_ids"][0]
+    return prog_id, map_id
+
+
+def read_counters(map_id):
+    dump = json.loads(run(["bpftool", "-j", "map", "dump", "id", str(map_id)]))
     return [entry["formatted"]["value"] if "formatted" in entry else entry["value"] for entry in dump]
 
 
 def main():
-    defines = [f"-DROUTER_ID={ip_to_int(WATCHER)}U", f"-DTUNNEL_NET={ip_to_int(TUNNEL_NET)}U",
-               f"-DTUNNEL_MASK={ip_to_int(TUNNEL_MASK)}U"]
-    run(["clang", "-O2", "-g", "-target", "bpf", "-I/usr/include/x86_64-linux-gnu", "-D__x86_64__",
-         *defines, "-c", sys.argv[1] if len(sys.argv) > 1 else "announcement_filter.c", "-o", "/tmp/announcement_filter.o"])
-    subprocess.run("mount -t bpf bpf /sys/fs/bpf 2>/dev/null || true", shell=True)
-    run(["bpftool", "prog", "load", "/tmp/announcement_filter.o", "/sys/fs/bpf/filter_test", "type", "classifier"])
+    prog_id, map_id = attach_with_entrypoint()
     ethernet_header = bytes(6) + bytes(6) + b"\x08\x00"  # test run requires L2; the filter reads from the IP header, as on gre1 egress
     failures = 0
     for name, packet, expected_verdict, expected_reason in CASES:
-        before = read_counters()
+        before = read_counters(map_id)
         with open("/tmp/case.bin", "wb") as case_file:
             case_file.write(ethernet_header + packet)
-        output = run(["bpftool", "prog", "run", "pinned", "/sys/fs/bpf/filter_test", "data_in", "/tmp/case.bin", "repeat", "1"])
+        output = run(["bpftool", "prog", "run", "id", str(prog_id), "data_in", "/tmp/case.bin", "repeat", "1"])
         verdict = int(output.split("Return value:")[1].split(",")[0])
-        after = read_counters()
+        after = read_counters(map_id)
         bumped = [REASONS[index] for index in range(len(REASONS)) if after[index] != before[index]]
         expected_bumped = [expected_reason] if expected_reason else []
         status = "ok   " if (verdict, bumped) == (expected_verdict, expected_bumped) else "WRONG"
         failures += status == "WRONG"
         print(f"{status} {'PASS' if verdict == PASS else 'DROP'} {','.join(bumped) or '-':13} {name}")
-    run(["rm", "-f", "/sys/fs/bpf/filter_test"])
     sys.exit(1 if failures else 0)
 
 
