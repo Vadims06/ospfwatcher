@@ -13,6 +13,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Manifest is valid JSON
         run: python3 -m json.tool onboarding/manifest.json > /dev/null
+      - name: Version files agree and the pinned images exist
+        # A tag name is attacker-controlled text, so it reaches the shell as a variable only
+        env:
+          TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+        run: sh onboarding/check_release.sh "$TAG"
       - name: configure.sh parses
         run: bash -n configure.sh
 

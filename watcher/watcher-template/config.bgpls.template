@@ -4,7 +4,6 @@ prefix: __lab-name
 topology:
   defaults:
     labels:
-      gre_num: 1025
       connection_mode: bgpls
       bgpls_router_ip: {{bgpls_router_ip}}
       bgpls_router_as: {{bgpls_router_as}}

@@ -4,7 +4,6 @@ prefix: __lab-name
 topology:
   defaults:
     labels:
-      gre_num: 1025
       gre_tunnel_number: {{gre_tunnel_number}}
       gre_tunnel_network_device_ip: {{gre_tunnel_network_device_ip}}
       gre_tunnel_ip_w_mask_network_device: {{gre_tunnel_ip_w_mask_network_device}}
@@ -116,11 +115,9 @@ topology:
     h2:
       kind: host
       exec:
-        # configured from client.py
       - sudo ip netns exec {{watcher_folder_name}}-router ip link set up dev gre1
       stages:
         create:
-          # removed from client.py if the announcement filter is enabled; the filter node brings gre1 up then
           wait-for:
           - node: h1
             stage: configure
