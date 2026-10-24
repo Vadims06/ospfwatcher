@@ -48,7 +48,7 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
     # 2. Configure and run
     sudo ./configure.sh --url <topolograph-url> --token <watcher-token>
     ```
-    `configure.sh` checks Docker, Docker Compose, containerlab, curl, git, systemd and root, fetches your answers from Topolograph, builds the watcher with `client.py --answers` and starts it from the `topolograph-ospfwatcher` systemd service, which brings the watchers back after a reboot. All watchers of one checkout share its version: `configure.sh` rebuilds each of them from its own registration.
+    `configure.sh` checks Docker, Docker Compose, containerlab, curl, git, systemd and root, fetches your answers from Topolograph, builds the watcher with the image's `render --answers` and starts it from the `topolograph-ospfwatcher` systemd service, which brings the watchers back after a reboot. All watchers of one checkout share its version: `configure.sh` rebuilds each of them from its own registration.
 3. Configure the router as the watcher page shows. The page shows when the command ran, when data arrived and a link to the graph; once data arrives the watcher shows "Connected".
 
 No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
@@ -209,18 +209,14 @@ sudo bpftool map dump id <map id>             # key = reason, value = dropped pa
 ```
 Keys: 0 malformed, 1 fragment, 2 LSA count, 3 LSA type, 4 LSA origin, 5 LSA flags, 6 LSA length, 7 link type, 8 foreign stub, 9 P2P link count.
 
-To enable/disable the filter
-```
-sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:latest python3 ./client.py --action enable_filter --watcher_num <num>
-```
-Use `--action disable_filter` to remove it. Re-create the watcher's lab after the change.
+To enable or disable the filter, set `is_filter_enabled` in the watcher's answers (on its Topolograph page, or in your answers file) and run `configure.sh` or `render` again, then re-create the watcher's lab.
 
 ##### Known limits
 * The watcher forwards nothing but its own Router LSA, so a network device that rebooted cannot get other routers' LSAs from the watcher. It resynchronises with its other neighbors.
-* Each watcher's router id is pinned in its FRR config (`ospf router-id`, the watcher's GRE tunnel address) and compiled into the filter; `enable_filter` adds it to a watcher created earlier.
+* Each watcher's router id is pinned in its FRR config (`ospf router-id`, the watcher's GRE tunnel address) and compiled into the filter; `render` adds it to a watcher created earlier.
 * Needs kernel 5.4 or newer. Tested only on 5.15.
-* The filter is off by default (`[y/N]`, manifest default false).
-* With the filter on, the filter node itself brings `gre1` up after attaching, and the `h2` node is not created. If the filter cannot attach, `gre1` stays down: no filter means no adjacency. Fix the cause or run `--action disable_filter`.
+* The filter is off by default (manifest default false).
+* With the filter on, the filter node itself brings `gre1` up after attaching, and the `h2` node is not created. If the filter cannot attach, `gre1` stays down: no filter means no adjacency. Fix the cause or set `is_filter_enabled` to false and render again.
 
 
 ## Troubleshooting

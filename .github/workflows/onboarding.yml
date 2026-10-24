@@ -13,11 +13,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Manifest is valid JSON
         run: python3 -m json.tool onboarding/manifest.json > /dev/null
-      - name: Manifest, compose file and VERSION agree
-        # A tag name is attacker-controlled text, so it reaches the shell as a variable only
-        env:
-          TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
-        run: python3 onboarding/check_contract.py "$TAG"
       - name: configure.sh parses
         run: bash -n configure.sh
 

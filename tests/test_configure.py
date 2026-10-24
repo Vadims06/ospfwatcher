@@ -20,7 +20,7 @@ FAKES = {
     "curl": 'out=""; timed=""; while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift;; -w) timed=1;; esac; shift; done; '
             '[ "$CURL_FAILS" = 1 ] && exit 7; [ -z "$out" ] || echo "{}" > "$out"; [ -z "$timed" ] || echo 200',
     "containerlab": 'echo "$*" >> "$LOG_DIR/containerlab"; [ -z "$UNSTOPPABLE" ] || case "$*" in *destroy*"$UNSTOPPABLE"*) exit 1;; esac; exit 0',
-    "docker": 'case "$*" in "run "*add_watcher*) eval "$REBUILD";; ps*label=containerlab=*) echo abc;; esac; exit 0',
+    "docker": 'case "$*" in "run "*render*) eval "$REBUILD";; ps*label=containerlab=*) echo abc;; esac; exit 0',
 }
 
 
