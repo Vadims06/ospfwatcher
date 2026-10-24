@@ -230,11 +230,12 @@ On the watcher host an installed watcher lives in `/opt/topolograph/ospfwatcher`
 Network changes are not tracked: the watcher log `watcher/logs/watcher<num>-...log` (under `/opt/topolograph/ospfwatcher` for an installed watcher) stays empty. `<num>` is the number in the watcher's folder name: `ls /opt/topolograph/ospfwatcher/watcher/`.
 
 ##### Steps:
-1. Run diagnostic script. It will check **OSPF Watcher** <-> **Network device** connection (iptables, packets from FRR/network device)
+1. Run the diagnostic. It checks the **OSPF Watcher** <-> **Network device** connection: GRE and OSPF hellos from both ends, MTU, stale conntrack entries and the iptables rules on the watcher's path. For a rule that is wrong it prints the command to fix it.
 
     ```
-    cd /opt/topolograph/ospfwatcher && sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:$(cat VERSION) python3 ./client.py --action diagnostic --watcher_num <num>
-    ``` 
+    cd /opt/topolograph/ospfwatcher && sudo onboarding/diagnostic.sh <num>
+    ```
+    The script passes `iptables-save -c` to `docker run -i --rm -v ./:/home/watcher/watcher/ --network host vadims06/ospf-watcher:$(cat VERSION) diagnostic --watcher_num <num> --iptables-save -`.
 2. Login on FRR.
 
     ```
@@ -290,10 +291,6 @@ The chain is: FRR (GRE mode) or bgplswatcher (BGP-LS mode) -> Watcher -> Fluent 
 2. Check that `ospf-fluent-bit` is running (`sudo docker ps`) and that its logs show no `401` or `403` (see above).
 
 For a watcher that feeds ELK, Zabbix, Loki or webhooks through Logstash, see [Troubleshooting Logstash](docs/exporters.md#troubleshooting-logstash).
-
-### Minimum version
-#### scapy
-2.5.0 works, 2.6.0 raises an exception
 
 ### Topolograph suite
 * OSPF Watcher [link](https://github.com/Vadims06/ospfwatcher)
