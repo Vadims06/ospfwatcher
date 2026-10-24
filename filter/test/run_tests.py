@@ -96,8 +96,8 @@ def run(command):
 def attach_with_entrypoint():
     """Attaches with the production entrypoint and tc, then returns the program and map ids."""
     run(["ip", "link", "add", "filtertest0", "type", "veth", "peer", "name", "filtertest1"])
-    environment = {"FILTER_INTERFACE": "filtertest0", "ROUTER_ID": WATCHER, "TUNNEL_NET": TUNNEL_NET,
-                   "TUNNEL_MASK": TUNNEL_MASK, "PATH": os.environ["PATH"]}
+    environment = {"FILTER_INTERFACE": "filtertest0", "ROUTER_ID": WATCHER, "TUNNEL_NETWORK": TUNNEL_NET,
+                   "TUNNEL_PREFIX_LEN": "24", "PATH": os.environ["PATH"]}
     subprocess.run(["/attach_filter.sh"], check=True, capture_output=True, env=environment)
     prog_id = int(run(["tc", "filter", "show", "dev", "filtertest0", "egress"]).split(" id ")[1].split()[0])
     map_id = json.loads(run(["bpftool", "-j", "prog", "show", "id", str(prog_id)]))["map_ids"][0]

@@ -67,9 +67,11 @@ def test_filter_node_runs_in_the_router_namespace_with_tunnel_settings(monkeypat
 
     assert node["image"].endswith("ospf-filter:v1")
     assert node["network-mode"] == "container:router"
-    assert dict(node["env"]) == {"ROUTER_ID": "10.10.25.33", "TUNNEL_NET": "10.10.25.0", "TUNNEL_MASK": "255.255.255.0"}
+    assert dict(node["env"]) == {"ROUTER_ID": "10.10.25.33", "TUNNEL_NETWORK": "10.10.25.0", "TUNNEL_PREFIX_LEN": "24"}
+    assert "cap-add" not in node
     assert "ospf router-id 10.10.25.33" in frr_conf
-    assert [dict(item) for item in config["topology"]["nodes"]["h2"]["stages"]["create"]["wait-for"]] == [
+    assert "h2" not in config["topology"]["nodes"]
+    assert [dict(item) for item in config["topology"]["nodes"]["ospf-watcher"]["stages"]["create"]["wait-for"]] == [
         {"node": "receive_only_filter", "stage": "exit"}]
 
 
@@ -79,3 +81,5 @@ def test_filter_node_is_absent_when_the_filter_is_off(monkeypatch, tmp_path):
     assert "receive_only_filter" not in config["topology"]["nodes"]
     assert [dict(item) for item in config["topology"]["nodes"]["h2"]["stages"]["create"]["wait-for"]] == [
         {"node": "h1", "stage": "configure"}]
+    assert [dict(item) for item in config["topology"]["nodes"]["ospf-watcher"]["stages"]["create"]["wait-for"]] == [
+        {"node": "h2", "stage": "create"}]

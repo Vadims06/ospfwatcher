@@ -66,18 +66,14 @@ topology:
       kind: linux
       image: vadims06/ospf-filter:latest
       startup-delay: 2
-      # attaches to gre1 egress from inside the FRR namespace, no host access needed
+      # attaches to gre1 egress from inside the FRR namespace and then brings gre1 up
       network-mode: container:router
-      cap-add:
-        - NET_ADMIN
-        - BPF
-        - PERFMON
       # one-shot node: it attaches the filter and exits, so it must not be restarted
       restart-policy: "no"
       env:
         ROUTER_ID: 10.10.25.33
-        TUNNEL_NET: 10.10.25.0
-        TUNNEL_MASK: 255.255.255.0
+        TUNNEL_NETWORK: 10.10.25.0
+        TUNNEL_PREFIX_LEN: 24
       stages:
         create:
           wait-for:
@@ -90,7 +86,7 @@ topology:
         - ip netns exec watcher3-gre1025-router ip link set up dev gre1
       stages:
         create:
-          # removed from client.py if the announcement filter is disabled
+          # removed from client.py if the announcement filter is enabled; the filter node brings gre1 up then
           wait-for:
             - node: receive_only_filter
               stage: exit

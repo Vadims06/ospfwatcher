@@ -222,8 +222,9 @@ Use `--action disable_filter` to remove it. Re-create the watcher's lab after th
 ##### Known limits
 * The watcher forwards nothing but its own Router LSA, so a network device that rebooted cannot get other routers' LSAs from the watcher. It resynchronises with its other neighbors.
 * Each watcher's router id is pinned in its FRR config (`ospf router-id`, the watcher's GRE tunnel address) and compiled into the filter; `enable_filter` adds it to a watcher created earlier.
-* Tested on kernel 5.15 with `NET_ADMIN`, `BPF` and `PERFMON`. These capabilities exist from kernel 5.8; older kernels would need `SYS_ADMIN` instead (not tested). Containerlab starts the node privileged anyway.
-* If the filter node fails, containerlab still brings `gre1` up unfiltered; check with the command above after starting a watcher.
+* Needs kernel 5.4 or newer. Tested only on 5.15.
+* The filter is off by default (`[y/N]`, manifest default false).
+* With the filter on, the filter node itself brings `gre1` up after attaching, and the `h2` node is not created. If the filter cannot attach, `gre1` stays down: no filter means no adjacency. Fix the cause or run `--action disable_filter`.
 
 
 ## Troubleshooting

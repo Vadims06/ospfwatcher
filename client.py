@@ -397,17 +397,7 @@ class WATCHER_CONFIG:
         # Logrotation
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME]['image'] = self.LOGROTATION_IMAGE
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME].setdefault('binds', []).append(f"../logs/{self.watcher_log_file_name}:/logs/watcher.log")
-        # Announcement filter, listen only
-        if self.is_filter_enabled:
-            self._set_filter_node(watcher_config_yml)
-        else:
-            del watcher_config_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]
-            for d in watcher_config_yml['topology']['nodes']['h2']['stages']['create']['wait-for']:
-                if d.get("node") == self.OSPF_FILTER_NODE_NAME:
-                    d['node'] = 'h1'
-                    d['stage'] = 'configure'
-        # Enable GRE after the announcement filter
-        watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
+        self._apply_filter_mode(watcher_config_yml)
         self._do_save_watcher_config_file(watcher_config_yml)
 
     @property
@@ -422,9 +412,26 @@ class WATCHER_CONFIG:
         node['network-mode'] = f"container:{self.ROUTER_NODE_NAME}"
         node['env'] = {
             'ROUTER_ID': self.router_id,
-            'TUNNEL_NET': str(tunnel_network.network_address),
-            'TUNNEL_MASK': str(tunnel_network.netmask),
+            'TUNNEL_NETWORK': str(tunnel_network.network_address),
+            'TUNNEL_PREFIX_LEN': str(tunnel_network.prefixlen),
         }
+
+    def _apply_filter_mode(self, clab_config) -> None:
+        """With the filter the filter node brings gre1 up, so no filter means no adjacency."""
+        nodes = clab_config['topology']['nodes']
+        template_nodes = self.watcher_config_template_yml['topology']['nodes']
+        if self.is_filter_enabled:
+            nodes[self.OSPF_FILTER_NODE_NAME] = copy.deepcopy(template_nodes[self.OSPF_FILTER_NODE_NAME])
+            self._set_filter_node(clab_config)
+            nodes.pop('h2', None)
+            gre_up_node = {'node': self.OSPF_FILTER_NODE_NAME, 'stage': 'exit'}
+        else:
+            nodes.pop(self.OSPF_FILTER_NODE_NAME, None)
+            nodes['h2'] = copy.deepcopy(template_nodes['h2'])
+            nodes['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
+            nodes['h2']['stages']['create']['wait-for'] = [{'node': 'h1', 'stage': 'configure'}]
+            gre_up_node = {'node': 'h2', 'stage': 'create'}
+        nodes[self.WATCHER_NODE_NAME]['stages']['create']['wait-for'] = [gre_up_node]
 
     def _ensure_router_id_in_frr_conf(self) -> None:
         """Watchers created before the filter pinned no router id."""
@@ -1074,11 +1081,9 @@ class WATCHER_CONFIG:
         current_clab_config = self.watcher_config_file_yml
         if not current_clab_config:
             raise ValueError(f"config file for watcher #{args.watcher_num} was not found")
-        current_clab_config['topology']['nodes'].setdefault(self.OSPF_FILTER_NODE_NAME, dict()).update( copy.deepcopy(self.watcher_config_template_yml['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]) )
-        self._set_filter_node(current_clab_config)
+        self.is_filter_enabled = True
+        self._apply_filter_mode(current_clab_config)
         self._ensure_router_id_in_frr_conf()
-
-        current_clab_config['topology']['nodes']['h2'].setdefault('stages', dict()).update( copy.deepcopy(self.watcher_config_template_yml['topology']['nodes']['h2']['stages']) )
         self._do_save_watcher_config_file(current_clab_config)
         print("Announcement filter enabled")
 
@@ -1087,11 +1092,8 @@ class WATCHER_CONFIG:
         current_clab_config = self.watcher_config_file_yml
         if not current_clab_config:
             raise ValueError(f"config file for watcher #{args.watcher_num} was not found")
-        del current_clab_config['topology']['nodes'][self.OSPF_FILTER_NODE_NAME]
-        for d in current_clab_config['topology']['nodes']['h2']['stages']['create']['wait-for']:
-            if d.get("node") == self.OSPF_FILTER_NODE_NAME:
-                d['node'] = 'h1'
-                d['stage'] = 'configure'
+        self.is_filter_enabled = False
+        self._apply_filter_mode(current_clab_config)
         self._do_save_watcher_config_file(current_clab_config)
         print("Announcement filter disabled")
 
