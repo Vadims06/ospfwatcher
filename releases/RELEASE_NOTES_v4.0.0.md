@@ -1,6 +1,11 @@
-# OSPF Watcher Release Notes v3.4.0
+# OSPF Watcher Release Notes v4.0.0
 
 ## Changes
+
+**The watcher is rewritten in Rust**
+The image `vadims06/ospf-watcher` is now one static binary with no Python in it. The event log lines and what Topolograph receives stay the same.
+* `diagnostic` is built in: `sudo onboarding/diagnostic.sh <num>` checks GRE and OSPF hellos from both ends, MTU, stale conntrack entries and the iptables rules on the watcher's path, and prints the command that fixes a wrong rule.
+* Without Topolograph the watcher says once at start that events go to the local log only.
 
 **Install from Topolograph**
 Topolograph Enterprise's Watchers page now installs a watcher in GRE or BGP-LS mode. It
@@ -38,3 +43,5 @@ A watcher installed by hand moves to the Topolograph install as described in the
 
 1. Pull the repository and the `vadims06/ospf-filter` image.
 2. For a watcher with the filter, set `is_filter_enabled` to true in its answers, run `render` again and re-create its lab. This also pins `ospf router-id` in its FRR config.
+
+Every watcher restarts once after the upgrade, because its pinned image version changes. The Python images up to `v3.2.0` stay on Docker Hub.
