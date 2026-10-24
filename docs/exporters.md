@@ -2,6 +2,8 @@
 
 A watcher writes its events to text logs. Logstash or Fluent Bit can pass them on. This page covers Kibana, Zabbix, Slack and other webhooks, Loki, and the manual setup of a watcher by hand.
 
+The ELK integration was tested with the Basic ELK license.
+
 ## Discovering OSPF logs in Kibana. Examples
 OSPF cost changes on links  
 ![](cost-changes-raw-logs.png)

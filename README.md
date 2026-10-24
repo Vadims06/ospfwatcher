@@ -104,7 +104,7 @@ The FRR container is isolated in an individual network namespace and establishes
 #### BGP-LS Mode
 The watcher connects to a network router via BGP-LS (BGP Link-State) protocol. The router must be configured to advertise OSPF topology information via BGP-LS. The watcher uses GoBGP (bgplswatcher) to establish a BGP session and receive BGP-LS updates, which are then processed by the OSPF watcher component. This mode eliminates the need for GRE tunnels and OSPF adjacencies, making it easier to deploy in environments where GRE tunnels are not feasible.
 
-![](docs/ospfwatcher_plus_topolograph_architecture_v3_xdp_rules.png)  
+![The watcher's FRR sends into gre1; the announcement filter on gre1 egress passes only the allowed OSPF packets](docs/announcement_filter_architecture.svg)  
 Each Watcher instance maintains all routes and updates within an isolated network namespace. This isolation ensures efficient monitoring without interference and prevent route leaks.
 
 > [!NOTE]
@@ -154,7 +154,7 @@ Setup GRE tunnel from the network device to the host. An example for Cisco
 > [!NOTE]
 > You can skip this step and run ospfwatcher in `test_mode`, so test LSDB from
 > the file will be taken and test changes (loss of adjacency and change of OSPF
-> metric) will be posted in ELK.
+> metric) will be written to the watcher log.
 
 ```bash
 interface gigabitether0/1
@@ -192,12 +192,8 @@ The watcher must only listen. A tc-BPF program on the egress of `gre1` inside th
 | LS Update | pass only if every LSA is the watcher's own Router LSA: no V/E/B flags, at most one point-to-point link, stub links only for the GRE tunnel network |
 | Any other LS Update (other LSA types, other routers' LSAs, transit or virtual links, foreign stubs, truncated or fragmented packets) | drop |
 
-Lab schema: there are two wireshark sessions on the interfaces before (on the left side) and after (on the right side) the filter.
-![](./docs/FRR_Watcher_Wireshark.png)  
-This example shows that `8.8.8.8` prefix was redistributed on Watcher and added into its announcement, but it was dropped by the filter and eventually didn't reach the network.
-![](./docs/lsa5_drop_highlighted.png)  
-The same logic is applied to extra stub networks in LSA1 Update
-![](./docs/lsa1_two_stub_networks_drop_highlighed.png) 
+![The watcher's own Router LSA reaches the device; an extra stub or an external LSA for 8.8.8.8/32 is dropped](./docs/announcement_filter_in_action.svg)  
+If `8.8.8.8/32` is added to the watcher's announcement, as an extra stub network or redistributed as an external LSA, the filter drops it and the network never learns it.
 
 To check whether the filter is attached, run
 ```
@@ -315,7 +311,6 @@ For a watcher that feeds ELK, Zabbix, Loki or webhooks through Logstash, see [Tr
 
 ### License
  GPL-3.0 license
- Elastic search was used with Basic ELK license.  
 
 [Other exports (ELK, Zabbix, Loki, webhooks)](docs/exporters.md)
 
