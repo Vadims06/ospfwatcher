@@ -12,6 +12,7 @@ interface gre1
 exit
 !
 router ospf
+ospf router-id {{router_id}}
 capability opaque
 network {{tunnel_subnet_w_digit_mask}} area {{area_num}}
 !

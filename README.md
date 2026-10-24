@@ -1,22 +1,79 @@
 # OSPF Topology Watcher
-OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers. It works via passively listening to OSPF control plane messages through either a specially established OSPF adjacency over a GRE tunnel (GRE mode) or by receiving BGP-LS updates from a network router (BGP-LS mode). The tool logs OSPF events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. Components of the solution are wrapped into containers, so it can be increadebly fast to start it. In GRE mode, GRE tunnel setup on the Linux host is configured manually.
+OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers. It listens passively to the OSPF control plane, either over its own OSPF adjacency on a GRE tunnel (GRE mode) or through BGP-LS updates from a router (BGP-LS mode). It sends the topology and every change to **Topolograph**: each adjacency, cost and prefix change appears on the graph and on its timeline.
 
 > [!NOTE]
 > Tracking OSPF topology changes via **BGP-LS** is **supported starting from Docker image `vadims06/ospf-watcher:v3.1.0`**.
 > For older images, BGP-LS support is not available.
 
+![OSPF events on the graph and on the timeline in Topolograph](docs/ui/events-timeline.png)
+*Events on the graph and on the timeline: Graphs, open a graph, **Events** tab.*
+
+## What you see in Topolograph
+**Monitoring.** Events as a histogram by category over the period you pick, with the events table below (here: the 13-router demo, events of pe14, pe15, core31 and core10). Open **Monitoring** in the top menu.
+![Monitoring page: event histogram and events table](docs/ui/monitoring-histogram.png)
+
+**Events by router.** The same period grouped by the router that detected the change. In a graph, open the **Events** tab and choose **By router**.
+![Events by router](docs/ui/events-by-router.png)
+
+**Event search.** The events table filtered by router, event type and period. On the **Monitoring** page here: router `pe15`, adjacency down events, a chosen period.
+![Event search: router, event type and period filters](docs/ui/event-search.png)
+
+**The graph at the moment of an event.** Click an event in the **Events** tab to open the graph as it was at that time. After the adjacency down event (pe15, core110) the link between them is drawn as down. **Back to live** returns to the current graph.
+![Graph at the time of an adjacency down event](docs/ui/graph-at-event.png)
+
+**A link cost change on the graph.** The selected event row (pe14, core110, 10 → 14) is in the **Events** tab and the changed link is highlighted on the graph: the cost between pe14 and core110 went from 10 to 14.
+![Link cost change highlighted on the graph](docs/ui/cost-change-on-graph.png)
+
 ## Quick start
-1. On a Docker host, install Topolograph and the watcher compose files:
+1. Enterprise: in Topolograph open **Add → Watcher**, choose the type (OSPF Watcher) and the mode (GRE or BGP-LS) and fill in the form. The wizard issues a watcher token and shows one install command.
+
+    ![Add watcher: choose type and mode](docs/ui/watcher-mode.png)
+
+    ![Add watcher: install command](docs/ui/watcher-install.png)
+
+2. Run the command on a Docker host with containerlab. It downloads `install.sh` pinned to a release tag, checks its SHA-256 and runs it with `--url`, `--token` and `--ref`:
 
     ```bash
-    curl -O https://raw.githubusercontent.com/Vadims06/topolograph-docker/master/install.sh
-    chmod +x install.sh
-    sudo ./install.sh
+    curl -fsSLo install.sh https://raw.githubusercontent.com/Vadims06/ospfwatcher/<version>/install.sh \
+      && echo "<sha256>  install.sh" | sha256sum -c \
+      && sudo bash install.sh --url <topolograph-url> --token <watcher-token> --ref <version>
     ```
-2. `cp .env.template .env`, then set `TOPOLOGRAPH_HOST` and `TOPOLOGRAPH_PORT` to the host IP (not `localhost`).
-3. Pick a deployment size in [How to connect OSPF watcher to real network](#how-to-connect-ospf-watcher-to-real-network).
+
+    `install.sh` clones this repository into `/opt/topolograph/ospfwatcher`, checks out the tag and starts `configure.sh`. The same steps by hand:
+
+    ```bash
+    # 1. Download
+    [ -d /opt/topolograph/ospfwatcher ] || sudo git clone https://github.com/Vadims06/ospfwatcher /opt/topolograph/ospfwatcher
+    cd /opt/topolograph/ospfwatcher && sudo git fetch --tags origin <version> && sudo git checkout --detach FETCH_HEAD
+    # 2. Configure and run
+    sudo ./configure.sh --url <topolograph-url> --token <watcher-token>
+    ```
+    `configure.sh` checks Docker, Docker Compose, containerlab, curl, git, systemd and root, fetches your answers from Topolograph, builds the watcher with the image's `render --answers` and starts it from the `topolograph-ospfwatcher` systemd service, which brings the watchers back after a reboot. All watchers of one checkout share its version: `configure.sh` rebuilds each of them from its own registration.
+3. Configure the router as the watcher page shows. The page shows when the command ran, when data arrived and a link to the graph; once data arrives the watcher shows "Connected".
 
 No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
+
+### Requirements and more watchers
+1. Choose a Linux host with Docker, Docker Compose v2, [containerlab](https://containerlab.dev/install/), curl and git; GRE mode also needs iptables and conntrack.
+2. Launch your own Topolograph with [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or use the public https://topolograph.com.
+3. To add another watcher on the same host, repeat step 1 of the Quick start: every watcher of the checkout is rebuilt from its own registration. To change answers or after **Rotate token**, run `configure.sh` again; when a newer version is out, the watcher page shows the update command.
+4. Configure the network device, see [Device configuration](#device-configuration).
+
+### Moving a watcher installed by hand
+To move a watcher set up by hand to Topolograph:
+1. Stop it in its old checkout with `sudo containerlab destroy -t watcher/<watcher folder>/config.yml` and move that folder out of the checkout. Two GRE watchers towards one router from one host cannot run at the same time.
+2. Add it on the Monitoring page with the same answers and run the command the page shows.
+
+The manual setup is described in [docs/exporters.md](docs/exporters.md).
+
+### Removing a watcher
+Deleting a watcher in Topolograph revokes its token; its containers keep running on the host until you stop them. To remove one watcher of an installed checkout:
+```
+cd /opt/topolograph/ospfwatcher
+sudo onboarding/stop.sh watcher/<watcher folder>/config.yml
+sudo mkdir -p watcher/.removed && sudo mv watcher/<watcher folder> watcher/.removed/
+```
+To remove every watcher of the host: `sudo systemctl disable --now topolograph-ospfwatcher`. Both also remove the GRE rules and connection-tracking entries that `containerlab destroy` leaves behind.
 
 ## Logged topology changes:
 * OSPF neighbor adjacency Up/Down
@@ -34,6 +91,7 @@ No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
   * Traffic Engineering Default Metric
   * Shared Risk Link Group (SRLG)
 
+
 ## Architecture
 
 ### Connection Modes
@@ -41,12 +99,12 @@ No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
 OSPF Watcher supports two connection modes:
 
 #### GRE Mode (Traditional)
-The FRR container is isolated in an individual network namespace and establishes an OSPF adjacency over a GRE tunnel with a network device. The **XDP OSPF filter** inspects all outgoing OSPF advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, OSPF Database description (DB) or LSUpdate will be dropped. It prevents the network from populating by unexpected network prefixes.
+The FRR container is isolated in an individual network namespace and establishes an OSPF adjacency over a GRE tunnel with a network device. The **announcement filter** (a tc-BPF program on the egress of `gre1`) inspects every OSPF packet the watcher sends. An LS Update passes only if it carries the watcher's own Router LSA with the tunnel network and nothing else; anything else is dropped. It prevents the network from populating by unexpected network prefixes.
 
-#### BGP-LS Mode (New)
+#### BGP-LS Mode
 The watcher connects to a network router via BGP-LS (BGP Link-State) protocol. The router must be configured to advertise OSPF topology information via BGP-LS. The watcher uses GoBGP (bgplswatcher) to establish a BGP session and receive BGP-LS updates, which are then processed by the OSPF watcher component. This mode eliminates the need for GRE tunnels and OSPF adjacencies, making it easier to deploy in environments where GRE tunnels are not feasible.
 
-![](docs/ospfwatcher_plus_topolograph_architecture_v3_xdp_rules.png)  
+![The watcher's FRR sends into gre1; the announcement filter on gre1 egress passes only the allowed OSPF packets](docs/announcement_filter_architecture.svg)  
 Each Watcher instance maintains all routes and updates within an isolated network namespace. This isolation ensures efficient monitoring without interference and prevent route leaks.
 
 > [!NOTE]
@@ -54,153 +112,18 @@ Each Watcher instance maintains all routes and updates within an isolated networ
 > , it means that OSPF network changes can be shown on the network graph.
 
 ### Functional Role
-![](docs/functional-watcher-role.png)
+![Watcher collects control-plane changes; Topolograph shows the past, the present and the future of the topology](docs/functional-watcher-role.png)
 
 ## Demo
-Instant notifications   
+Instant notifications. The video and the animation below show Topolograph 2.49; the current interface is in [What you see in Topolograph](#what-you-see-in-topolograph).
 [![OSPF Watcher instance notification](./docs/ospfwarcher_socket_demo.png)](https://youtu.be/2IHbxmDVMA0)  
 Click on the image in order zoom it.  
 ![](https://github.com/Vadims06/ospfwatcher/blob/ada2ca86df171ec5f1b550da821f0a8ca1cb1df4/docs/ospf-watcher-demo.gif)
 
-## Discovering OSPF logs in Kibana. Examples
-OSPF cost changes on links  
-![](docs/cost-changes-raw-logs.png)
-
-Logs if OSPF adjacency was Up/Down or any networks appeared/disappeared.  
-![](docs/host-updown-raw-logs.png)
-
-#### Topolograph OSPF Monitoring. New subnet event shows where the subnet appeared  
-![](docs/ospf_monitoring_new_subnet.PNG)  
-
-#### Topolograph OSPF Monitoring. Filter any subnet-related events, select Change metric event
-new and old metric is shown
-![](docs/ospf_monitoring_change_metric.PNG) 
-
-#### Topolograph OSPF Monitoring. up/down link events
-Red timelines show link (~adjacency) down events, green one - up link (~adjacency).  
-Timeline `10.1.1.2-10.1.1.3` has been selected.
-![](docs/ospf_monitoring_down_link.PNG)
-
-## OSPF topology change notification/alarming via Zabbix. Examples
-Zabbix's dashboard with active OSPF alarms detected by OSPFWatcher  
-![](https://github.com/Vadims06/ospfwatcher/blob/cc690cff7cb9a99543b4a4c5163db54284e8f888/docs/zabbix-ui/zabbix_dashboard_with_all_alarms.png)
-
-#### Zabbix OSPF neighbor up/down alarm
-This alarm tracks all new OSPF adjacencies or when device loses its OSPF neighbor
-![](https://github.com/Vadims06/ospfwatcher/blob/cc690cff7cb9a99543b4a4c5163db54284e8f888/docs/zabbix-ui/zabbix_ospf_neighbor_up_log_latest_data.png)
-
-#### Zabbix OSPF Cost changed on transit links
-Transit links are all links between active OSPF neighbors. If cost on a link was changed it might affect all actual/shortest paths traffic follows 
-![](https://github.com/Vadims06/ospfwatcher/blob/cc690cff7cb9a99543b4a4c5163db54284e8f888/docs/zabbix-ui/zabbix_ospf_link_cost_change_log_latest_data.png)
-
-#### Zabbix alert if OSPF network was stopped announcing from node
-If a subnet was removed from OSPF node (the node withdrew it from the announcement) it means the network from this node became unavailable for others, this event will be logged too.
-![](https://github.com/Vadims06/ospfwatcher/blob/cc690cff7cb9a99543b4a4c5163db54284e8f888/docs/zabbix-ui/zabbix_ospf_network_up_log_latest_data.png)
-
-#### Slack notification
-HTTP POST messages can be easily accepted by messengers, which allows to get instant notifications of OSPF topology changes:
-![](docs/slack/slack_notification.PNG)
-
-## Push OSPF topology changes to Loki
-
-You can configure [Loki](https://grafana.com/oss/loki/) to receive topology changes. Edit `.env` and set `EXPORT_TO_LOKI_BOOL` and `LOKI_URL`.
-
-Both shippers declare the same stream labels, so one set of Grafana queries
-works whichever of them you run:
-
-| Label | Values |
-|---|---|
-| `job` | `topolograph-ospf` |
-| `event_name` | `network`, `host`, `metric`, `temetric`, `node` |
-| `event_status` | `up`, `down`, `changed` |
-| `area_num` | `0.0.0.0` (OSPF area) |
-| `asn` | autonomous system number, e.g. `65001` |
-| `watcher_name` | name of the watcher that reported the event |
-
-Example query: `{job="topolograph-ospf", event_status="down"}`
-
-## Quick lab
-#### Containerlab
-Here is a lab for tracking OSPF topology changes placed here **containerlab/frr01**. Watcher logs:  
-![](docs/ospfwatcher_containerlab.png)    
-OSPF topology changes are printed by Watcher in a text file only.
-```
-./containerlab/frr01/prepare.sh
-sudo clab deploy --topo ./containerlab/frr01/frr01.clab.yml
-```   
-
-## How to connect OSPF watcher to real network  
-Table below shows different options of possible setups, starting from the bare minimum in case of running Containerlab for testing and ending with maximum setup size with Watcher, Topolograph and ELK. The following setup describes setup **№2**. 
-| № | Deployment size | Compose files | Text logs | View on map | Zabbix / HTTP / Messengers | Search events |
-|---|----------------|---------------|-----------|-------------|---------------------------|---------------|
-| 1 | Bare minimum (Containerlab) | 0 | + | − | − | − |
-| 2 | Local Topolograph + local compose (ELK **disabled**) | 2 | + | + | + | − |
-| 3 | Local Topolograph + local compose (ELK **enabled**) | 3 | + | + | + | + |
-| 4 | Same as №2 but **Fluent Bit** instead of Logstash (Zabbix not available) | 2 | + | + | HTTP/Webhook only | − |
-
-#### Setup №2. Text logs + timeline of network changes on Topolograph 
-1. Choose a Linux host with Docker installed
-2. Run script:  
-```bash
-curl -O https://raw.githubusercontent.com/Vadims06/topolograph-docker/master/install.sh
-chmod +x install.sh
-sudo ./install.sh
-```   
-It will:  
-
-  1. Setup Topolograph
-  It's needed for network events visualization on Topolograph UI. Skip if you don't want it. 
-* launch your own Topolograph on docker using [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or make sure you have a connection to the public https://topolograph.com
-* create a user for API authentication using `Local Registration` form on the Topolograph page, add your IP address in `API/Authorised source IP ranges`.
-Set variables in `.env` file:    
-
-> [!NOTE]
-> * `TOPOLOGRAPH_HOST` - *set the IP address of your host, where the docker is
->   hosted (if you run all demo on a single machine), do not put `localhost`,
->   because ELK, Topolograph and OSPF Watcher run in their private network
->   space*
-> * `TOPOLOGRAPH_PORT` - by default `8080`
-> * `TOPOLOGRAPH_WEB_API_USERNAME_EMAIL` - by default `ospf@topolograph.com` or
->   put your recently created user
-> * `TOPOLOGRAPH_WEB_API_PASSWORD` - by default `ospf`
-> * Logstash and Fluent Bit send live events to Topolograph with this login and
->   password; Topolograph rejects events without them (HTTP 401) and shows
->   them only to this user
-> * `TEST_MODE` - if mode is `True`, a demo OSPF events from static file will be
->   uploaded, not from FRR
 
 ## Watcher Heartbeats
 
-ospfwatcher can periodically POST a heartbeat to Topolograph so the UI displays all registered watchers with their liveness status (`up` / `stale` / `down`), independent of whether the network is producing topology events.
-
-### Prerequisites
-
-- Topolograph v3.x or later
-- One shared Topolograph user account per organisation (all watchers must use the same API token so they appear together in the UI)
-
-### Setup
-
-**Step 1 — Generate an API token in Topolograph**
-
-Log in to Topolograph → **Settings → API Tokens → Create token**. Copy the `sk-...` value.
-
-**Step 2 — Provision the watcher**
-
-When running `client.py --action add_watcher`, you will be prompted:
-
-```
-Topolograph API token (sk-..., leave empty to skip heartbeats):
-```
-
-Paste the `sk-...` token. It will be written to the watcher container's environment automatically.
-
-To add a token to an existing watcher, edit the watcher's `config.yml` and add `TOPOLOGRAPH_API_TOKEN: sk-...` under the `ospf-watcher` node's `env` block, then redeploy.
-
-**Step 3 — Verify**
-
-After the watcher starts, check Topolograph UI → **Watchers** tab. The watcher should appear with status `up` within one `HEARTBEAT_INTERVAL` (default: 60 seconds).
-
-### Status values
+A watcher added on Topolograph's Monitoring page sends heartbeats with its own token and needs no setup.
 
 | Status | Meaning |
 |--------|---------|
@@ -208,88 +131,22 @@ After the watcher starts, check Topolograph UI → **Watchers** tab. The watcher
 | `stale` | Last heartbeat older than `× 3` but within `× 6` seconds |
 | `down` | No heartbeat for more than `× 6` seconds, or watcher never connected |
 
-### Environment variables
-
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TOPOLOGRAPH_API_TOKEN` | _(empty)_ | Bearer token from Topolograph UI. If empty, heartbeats are disabled. |
 | `HEARTBEAT_INTERVAL` | `60` | Seconds between heartbeats. |
 | `WATCHER_IP` | _(auto)_ | Override the watcher's reported source IP (`srcid`). Useful in containers where hostname resolution returns `127.0.1.1`. |
 
-### Multi-watcher organisations
 
-All watchers belonging to the same organisation should use the **same API token** (generated under one shared service account). This ensures all watchers appear together under `GET /api/v1/watcher/status` in the Topolograph UI.
-
----
-
-**2. Setup OSPF Watcher**
-```bash
-git clone https://github.com/Vadims06/ospfwatcher.git
-cd ospfwatcher
-cp .env.template .env
+## Quick lab
+#### Containerlab
+Here is a lab for tracking OSPF topology changes placed here **containerlab/ospf01**. Watcher logs:  
+![](docs/ospfwatcher_containerlab.png)    
+OSPF topology changes are printed by Watcher in a text file only.
 ```
-Generate configuration files  
-`vadims06/ospf-watcher:v1.7` includes a client for generating configurations for each Watcher for each OSPF area. To generate individual settings - run the client with `--action add_watcher`   
-```
-sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/ospf-watcher:latest python3 ./client.py --action add_watcher
+./containerlab/ospf01/prepare.sh
+sudo clab deploy --topo ./containerlab/ospf01/ospf01.clab.yml
 ```   
-Output:   
-```
-+---------------------------+
-|  Watcher Host             |                       +-------------------+
-|  +------------+           |                       | Network device    |
-|  | netns FRR  |           |                       |                   |
-|  |            Tunnel [4]  |                       | Tunnel [4]        |
-|  |  gre1   [3]TunnelIP----+-----------------------+[2]TunnelIP        |
-|  |  eth1------+-vhost1    |       +-----+         | OSPF area num [5] |
-|  |            | Host IP[6]+-------+ LAN |--------[1]Device IP         |
-|  |            |           |       +-----+         |                   |
-|  +------------+           |                       |                   |
-|                           |                       +-------------------+
-+---------------------------+
-[1]Network device IP [x.x.x.x]: 
-```
-The script will create:
-1. a folder under `watcher` folder with FRR configuration under `router` folder
-2. a containerlab configuration file with network settings
-3. an individual watcher log file in `watcher` folder.  
 
-OSPF routes of each Watcher instance stay isolated in watcher's network namespace. To stop OSPF routes from being installed even in the watcher's network namespace, we the following policy has been applied on the watcher:
-```bash
-# quagga/config/ospfd.conf
-route-map TO_KERNEL deny 200
-exit
-!
-ip protocol ospf route-map TO_KERNEL
-```
-
-5. Start OSPF Watcher  
-[Install](https://containerlab.srlinux.dev/install/) containerlab
-To start the watcher run the following command. `clab deploy` is like a `docker compose up -d` command   
-```
-sudo clab deploy --topo watcher/watcher1-tun1025/config.yml
-```
-It will create:
-* Individual network namespace for Watcher and FRR
-* A pair of tap interfaces to connect the watcher to Linux host
-* GRE tunnel in Watcher's namespace
-* NAT settings for GRE traffic
-* FRR & Watcher instance
-* assign XDP OSPF filter on watcher's tap interface
-
-6. Start log export to Topolograph and/or ELK (optionally if you configured Step 2 or 3)  
-```
-docker-compose build
-docker-compose up -d
-```  
-
-**Compose profiles (Logstash vs Fluent Bit):**  
-- **Default (no profile):** starts Logstash and the index-creator. Use `docker compose up -d` (or `docker compose up -d ospf-logstash ospf-logstash-index-creator`).
-- **Fluent Bit only:** the `fluent-bit` service has profile `fluent-bit`. To start **only** Fluent Bit (no Logstash, no index-creator), run:
-  ```bash
-  docker compose --profile fluent-bit up -d fluent-bit
-  ```
-  Pipeline definition: [`fluentbit/fluent-bit.yaml`](./fluentbit/fluent-bit.yaml) (bind-mounted into the container). Logstash and Fluent Bit send HTTP payloads in different shapes; see **HTTP output: Logstash vs Fluent Bit** under *Minimum version*.
 
 ### Device configuration
 Setup GRE tunnel from the network device to the host. An example for Cisco
@@ -297,7 +154,7 @@ Setup GRE tunnel from the network device to the host. An example for Cisco
 > [!NOTE]
 > You can skip this step and run ospfwatcher in `test_mode`, so test LSDB from
 > the file will be taken and test changes (loss of adjacency and change of OSPF
-> metric) will be posted in ELK.
+> metric) will be written to the watcher log.
 
 ```bash
 interface gigabitether0/1
@@ -307,170 +164,78 @@ tunnel source <router-ip>
 tunnel destination <host-ip>
 ip ospf network type point-to-point
 ```
-Set GRE tunnel network where <GRE tunnel ip address> is placed to `quagga/config/ospfd.conf`  
+With the manual setup, set the GRE tunnel network where <GRE tunnel ip address> is placed in `quagga/config/ospfd.conf`; the Monitoring page does it for you.  
+
+For BGP-LS mode, export the OSPF database to the watcher. An example for Cisco IOS-XR
+```bash
+router ospf 1
+ distribute link-state
+!
+router bgp <router-as>
+ address-family link-state link-state
+ !
+ neighbor <watcher-host-ip>
+  remote-as <watcher-as>
+  ! for eBGP: ebgp-multihop 255
+  address-family link-state link-state
+```
 
 Check OSPF neighbor, if there is no OSPF adjacency between network device and OSPF Watcher, check troubleshooting `OSPF Watcher <-> Network device connection` section below (to run diagnostic script).
 
-#### *Optionally*
-Setup ELK (skip it, it's only needed for setup № 3)  
-* if you already have ELK instance running, fill `ELASTIC_IP` in env file and uncomment Elastic config here `ospfwatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for Index Templates creation, because `create.py` script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `ospfwatcher/logstash/index_template/create.py`.
-To create Index Templates, run:
+
+### Listen-only mode. Announcement filter in action.
+The watcher must only listen. A tc-BPF program on the egress of `gre1` inside the watcher's network namespace drops everything the watcher's FRR sends except its own minimal Router LSA.
+
+| OSPF packet | Verdict |
+|---|---|
+| Hello, LS Request, LS Ack, Database Description, non-OSPF | pass |
+| LS Update | pass only if every LSA is the watcher's own Router LSA: no V/E/B flags, at most one point-to-point link, stub links only for the GRE tunnel network |
+| Any other LS Update (other LSA types, other routers' LSAs, transit or virtual links, foreign stubs, truncated or fragmented packets) | drop |
+
+![The watcher's own Router LSA reaches the device; an extra stub or an external LSA for 8.8.8.8/32 is dropped](./docs/announcement_filter_in_action.svg)  
+If `8.8.8.8/32` is added to the watcher's announcement, as an extra stub network or redistributed as an external LSA, the filter drops it and the network never learns it.
+
+To check whether the filter is attached, run
 ```
-sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.py:/home/watcher/watcher/create.py vadims06/ospf-watcher:latest python3 ./create.py
-```   
-* if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in docker-elk/elasticsearch/config/elasticsearch.yml  
+sudo ip netns exec <netns> tc filter show dev gre1 egress
+filter protocol all pref 49152 bpf chain 0 handle 0x1 announcement_filter.o:[tc] direct-action not_in_hw id 13746 ... jited
 ```
-xpack.license.self_generated.type: basic
-xpack.security.enabled: false
-```  
+`<netns>` is the watcher router's network namespace, e.g. `clab-watcher1-gre1025-ospf-router`; `sudo ip netns list` shows it.
 
-> [!TIP]
-> When the Elastic output plugin fails to connect to the ELK host, it blocks all
-> other outputs and ignores `EXPORT_TO_ELASTICSEARCH_BOOL` value from env file.
-> Regardless of `EXPORT_TO_ELASTICSEARCH_BOOL` being `False`, it tries to
-> connect to Elastic host. The solution - uncomment this portion of config in
-> case of having running ELK.
-
- ## Kibana settings
- 1. **Index Templates** 
- Have been already created by `ospf-logstash-index-creator` container in compose yaml file.
- Open `Management -> Stack Management -> Index Management ->[ Index Templates ]` to make sure that the following templates are in the list:
-    * `ospf-watcher-costs-changes`
-    * `ospf-watcher-updown-events`     
- ![](docs/kibana_index_template.png)   
- 2. **Index Pattern**
- Create indices with the same name as index templates
- Go to:
- old ELK `Stack Management/ Kibana/ Stack Management/ Index Pattern -> Create index pattern`
- new ELK 8.x `Management -> Stack Management -> Index Management -> [ Indices ]`
-
-    then `Create index`
-    * ospf-watcher-costs-changes
-    * ospf-watcher-updown-events
- ![](docs/kibana_indices.png)
-
- 3. **Data View**
-  Create data view for two event types.
-  Go to `Management -> Stack Management -> Data Views`
-  then `Create data view`
-    ```
-    Name: ospf-watcher-costs-changes
-    Index pattern: ospf-watcher-costs-changes
-    Timestamp field: use watcher time
-    ```
-    ![](docs/kibana_data_view.png)   
-    Repeat the same for `ospf-watcher-updown-events`
-   As a result, there are two data views should be listed
-  ![](docs/kibana_data_view_list.png) 
-
-> [!TIP]
-> What time to use @timestamp or watcher?
-> 
-> It's better to use `watcher` time, because connection between Watcher and
-> Logstash can be lost, but the watcher continues to log all topology changes
-> with the correct time. When the connection is repaired, all logs will be added
-> to ELK and you can check the time of the incident. If you choose `@timestamp`
-> - the time of all logs will be the time of their addition to ELK.
-
- 4. **Additional checks**
-  Make sure that:
-    * `.env` has `EXPORT_TO_ELASTICSEARCH_BOOL=True`
-    * `./logstash/pipeline/logstash.conf` has ELK uncommented
- ## Browse your topology changes logs
- Your logs are here http://localhost:5601/ -> `Analytics/Discover` `watcher-updown-events`. 
- 
- ## Zabbix settings
- Zabbix settings are available here ```/docs/zabbix-ui```. There are 4 hosts and items (host and item inside each host has the same names) are required:
- * ospf_neighbor_up_down
- * ospf_network_up_down
- * ospf_link_cost_change
- * ospf_stub_network_cost_change
-
- ## WebHook setting
-1. Create a Slack app
-2. Enable Incoming Webhooks
-3. Create an Incoming Webhook (generates URL)
-4. Uncomment `EXPORT_TO_WEBHOOK_URL_BOOL` in `.env`, set the URL to `WEBHOOK_URL`
-
-##### Logs sample 1  
+Drop counters, one per reason, are in an array map of the attached program. Use the `id` from the output above:
 ```
-2023-01-01T00:00:00Z,demo-watcher,host10.10.10.4,down,10.10.10.5,01Jan2023_00h00m00s_7_hosts,0,1234,192.168.145.5
+sudo bpftool prog show id <id>                # map_ids <map id>
+sudo bpftool map dump id <map id>             # key = reason, value = dropped packets
 ```
+Keys: 0 malformed, 1 fragment, 2 LSA count, 3 LSA type, 4 LSA origin, 5 LSA flags, 6 LSA length, 7 link type, 8 foreign stub, 9 P2P link count.
 
-* `2023-01-01T00:00:00Z` - event timestamp
-* `demo-watcher` - name of watcher
-* `host` - event name: `host`, `network`, `metric`
-* `10.10.10.4` - event object. Watcher detected an event related to `10.10.10.4` host
-* `down` - event status: `down`, `up`, `changed`
-* `10.10.10.5` - event detected by this node.
-* `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-* `0.0.0.0` - OSPF area ID
-* `1234` - AS number where OSPF is working
-* `192.168.145.5` - IP address on detected node
-*Summary: `10.10.10.5` detected that `10.10.10.4` host on the interface with `192.168.145.5` IP address in area 0 in AS 1234 went down at `2023-01-01T00:00:00Z`*
+To enable or disable the filter, set `is_filter_enabled` in the watcher's answers (on its Topolograph page, or in your answers file) and run `configure.sh` or `render` again, then re-create the watcher's lab.
 
-##### Logs sample 2  
-```
-2023-01-01T00:00:00Z,demo-watcher,network,192.168.13.0/24,changed,old_cost:10,new_cost:12,10.10.10.1,01Jan2023_00h00m00s_7_hosts,0.0.0.0,1234,internal,0
-```
+##### Known limits
+* The watcher forwards nothing but its own Router LSA, so a network device that rebooted cannot get other routers' LSAs from the watcher. It resynchronises with its other neighbors.
+* Each watcher's router id is pinned in its FRR config (`ospf router-id`, the watcher's GRE tunnel address) and compiled into the filter; `render` adds it to a watcher created earlier.
+* Needs kernel 5.4 or newer. Tested only on 5.15.
+* The filter is off by default (manifest default false).
+* With the filter on, the filter node itself brings `gre1` up after attaching, and the `h2` node is not created. If the filter cannot attach, `gre1` stays down: no filter means no adjacency. Fix the cause or set `is_filter_enabled` to false and render again.
 
-* `2023-01-01T00:00:00Z` - event timestamp
-* `demo-watcher` - name of watcher
-* `metric` - event name: `host`, `network`, `metric`
-* `192.168.13.0/24` - event object. Watcher detected an event related to `192.168.13.0/24` subnet
-* `changed` - event status: `down`, `up`, `changed`
-* `10` - old cost
-* `12` - new cost
-* `10.10.10.1` - event detected by this node.
-* `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-* `0.0.0.0` - OSPF area ID
-* `1234` - AS number where OSPF is working
-* `internal` - type of network: `internal` or `external`
-* `0` - subtype of network: type-1, type-2 or 0 for internal subnets
-*Summary: `10.10.10.1` detected that metric of `192.168.13.0/24` internal stub network changed from `10` to `12` at `2023-01-01T00:00:00Z` in area 0*
-
-### Listen-only mode. XDP in action.
-If for some reason an extra network is advertised from Watcher, this announcement will be dropped.  
-Lab schema: there are two wireshark sessions on the interfaces before (on the left side) and after (on the right side) XDP filter. 
-![](./docs/FRR_Watcher_Wireshark.png)  
-This examples shows that `8.8.8.8` prefix was redistributed on Watcher and added into its announcement, but it was dropped by XDP and eventually didn't reach the network.
-![](./docs/lsa5_drop_highlighted.png)  
-The same logic is applied on Database Description messages
-![](./docs/lsa5_drop_db_description_highlighted.png) 
-and for extra stub networks in LSA1 Update
-![](./docs/lsa1_two_stub_networks_drop_highlighed.png) 
-To check XDP logs, run
-```
-sudo cat /sys/kernel/debug/tracing/trace_pipe
-```
-To check whether XDP filter is assigned on the interface, run
-```
-ubuntu20:~/ospfwatcher$ ip l show dev it-vhost1025
-178: it-vhost1025@if177: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdp qdisc noqueue state UP mode DEFAULT group default
-    link/ether aa:c1:ab:e3:cb:d9 brd ff:ff:ff:ff:ff:ff link-netnsid 0
-    prog/xdp id 153 <-- !!!
-```
-Demo video
-[![OSPF Deep packet inspection using XDP](./docs/logo_ospfwatcher_xdp_512_512.png)](https://www.youtube.com/watch?v=mC4PVD5hrRU)
-
-To enable/disable XDP
-```
-sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:latest python3 ./client.py --action enable_xdp --watcher_num <num>
-```
-##### Support
-Currently XDP was tested on Ubuntu 18,20 Kernel 5.4.0-204-generic.
-If you faced with XDP errors - skip it while generating config file or use `--action disable_xdp` as it mentioned in the example above.
 
 ## Troubleshooting
+Start on the watcher's page in Topolograph (**Monitoring**, then the watcher): it shows which step is missing: the install command ran, data arrived, the graph exists.
+
+On the watcher host an installed watcher lives in `/opt/topolograph/ospfwatcher`:
+* `sudo systemctl status topolograph-ospfwatcher` shows whether the watchers started.
+* `sudo docker logs ospf-fluent-bit` shows delivery to Topolograph. `401` means the watcher's token was rotated: run the command from its watcher page again. A deleted watcher gets `401` too: remove it from the host, see [Removing a watcher](#removing-a-watcher). `403` means the event names a graph that does not belong to this watcher.
+
 ##### Symptoms
-Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is empty.
+Network changes are not tracked: the watcher log `watcher/logs/watcher<num>-...log` (under `/opt/topolograph/ospfwatcher` for an installed watcher) stays empty. `<num>` is the number in the watcher's folder name: `ls /opt/topolograph/ospfwatcher/watcher/`.
 
 ##### Steps:
-1. Run diagnostic script. It will check **OSPF Watcher** <-> **Network device** connection (iptables, packets from FRR/network device)
+1. Run the diagnostic. It checks the **OSPF Watcher** <-> **Network device** connection: GRE and OSPF hellos from both ends, MTU, stale conntrack entries and the iptables rules on the watcher's path. For a rule that is wrong it prints the command to fix it.
 
     ```
-    sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:latest python3 ./client.py --action diagnostic --watcher_num <num>
-    ``` 
+    cd /opt/topolograph/ospfwatcher && sudo onboarding/diagnostic.sh <num>
+    ```
+    The script passes `iptables-save -c` to `docker run -i --rm -v ./:/home/watcher/watcher/ --network host vadims06/ospf-watcher:$(cat VERSION) diagnostic --watcher_num <num> --iptables-save -`.
 2. Login on FRR.
 
     ```
@@ -516,82 +281,16 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
     > Run `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0` on the Linux host to allow GoBGP on port 179 if needed to start goBGP in passive mode.
 
 ##### Symptoms
-Dashboard page is blank. Events are not present on OSPF Monitoring page.
+The watcher log has changes, but Topolograph shows no events.
 ##### Steps:
-OSPF Watcher consists of three services: OSPFd/FRR [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks. Let's start checking each component one by one.
-1. Check if FRR tracks OSPF changes in `./watcher/logs/watcher...log` file (previous case)   
-You should see tracked changes of your network, i.e. here we see that `10.0.0.0/29` network went up at `2023-10-27T07:50:24Z` on `10.10.1.4` router.   
+The chain is: FRR (GRE mode) or bgplswatcher (BGP-LS mode) -> Watcher -> Fluent Bit -> Topolograph.
+1. Check that the watcher log has the change, as in the previous case:
     ```
     2024-07-22T20:24:08Z,watcher-local,network,8.8.0.60/30,changed,old_cost:12,new_cost:-1,10.10.10.5,01Jan2023_00h00m00s_7_hosts,0.0.0.0,65001,external,1
     ```
-2. Check that logstash container from [docker-compose.yml](./docker-compose.yml) is running via `docker ps` command.  
+2. Check that `ospf-fluent-bit` is running (`sudo docker ps`) and that its logs show no `401` or `403` (see above).
 
-    1. Uncomment `DEBUG_BOOL="True"` in `.env` and start continuous logs `docker logs -f logstash`.
-    2. Copy and paste the log from the first step in watcher's log file  `./watcher/logs/watcher#-gre#-ospf.ospf.log`. `docker logs -f logstash` should print the output. If not - check logstash container.
-  
-3. Check that Topolograph stored the event: `docker logs logstash` shows no `401` or `403`, and the events API returns it:
-    ```
-    curl -u "$TOPOLOGRAPH_WEB_API_USERNAME_EMAIL:$TOPOLOGRAPH_WEB_API_PASSWORD" \
-      "http://$TOPOLOGRAPH_HOST:$TOPOLOGRAPH_PORT/api/events/<graph_time>/adjacency"
-    ```
-    `401` means a wrong login or password in `.env`; `403` means the event's `graph_time` is not a graph uploaded by this user.
-
-   ii. Check that `graph_time` is **not** empty. If so, check that you can login on the Topolograph page [`Login/Local Login`] using credentials defined in `.env` and your local network is added in `API/Authorised source IP ranges`. Usually, `10.0.0.0/8`, `172.16.0.0/12` ,`192.168.0.0/16` is enought.
-
-##### Development   
-Logstash pipeline development.
-Start logstash container
-```
-[ospf-watcher]# docker run -it --rm --network=topolograph_backend --env-file=./.env -v ./logstash/pipeline:/usr/share/logstash/pipeline -v ./logstash/config:/usr/share/logstash/config ospfwatcher_watcher:latest /bin/bash
-```
-Inside container run this command:
-```
-bin/logstash
-```
-It will expect watcher's log file change, so add new log (copy and paste this line) into `./watcher/logs/watcher#-gre#-ospf.ospf.log` file
-```
-2023-01-01T00:00:00Z,watcher-local,network,10.1.14.0/24,changed,old_cost:10,new_cost:123,10.1.1.4,01Jan2023_00h00m00s_7_hosts,0.0.0.0,12345,internal,0
-```
-The output should be:
-```
-[INFO ] 2024-05-13 21:15:25.462 [[main]-pipeline-manager] javapipeline - Pipeline started {"pipeline.id"=>"main"}
-The stdin plugin is now waiting for input:
-[INFO ] 2024-05-13 21:15:25.477 [Agent thread] agent - Pipelines running {:count=>1, :running_pipelines=>[:main], :non_running_pipelines=>[]}
-2023-01-01T00:00:00Z,watcher-local,network,10.1.14.0/24,changed,old_cost:10,new_cost:123,10.1.1.4,01Jan2023_00h00m00s_7_hosts,0.0.0.0,12345,internal,0
-{
-                            "graph_time" => "01Jan2023_00h00m00s_7_hosts",
-                     "event_detected_by" => "10.1.1.4",
-                           "subnet_type" => "internal",
-                        "int_ext_subtype"=> "0",
-                                   "asn" => "12345",
-                          "watcher_name" => "demo-watcher",
-                          "watcher_time" => "2023-01-01T00:00:00Z",
-                            "@timestamp" => 2024-05-13T21:15:50.628Z,
-                              "old_cost" => "10",
-                              "@version" => "1",
-                                  "host" => "ba8ff3ab31f8",
-                            "event_name" => "network",
-                              "new_cost" => "123",
-                          "event_object" => "10.1.14.0/24",
-                          "event_status" => "changed"
-}
-```
-Add your changes in `./logstash/pipeline` file, stop logstash process via CTRL+C `bin/logstash` and start it again. Add the same log in the watcher's log file and check how logstash works with your new changes.
-
-### Minimum version
-#### Logstash
- 7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)
-
-> [!NOTE]
-> **HTTP output: Logstash vs Fluent Bit** — the `http` plugins use different `format` options and batching rules. Align the receiver (e.g. Topolograph `/websocket`) with the body shape you send.
->
-> * **Logstash** ([http output](https://www.elastic.co/guide/en/logstash/current/plugins-outputs-http.html)): `format` is one of `json` (default), `json_batch`, `form`, or `message`. With **`json`**, each request body is typically **one JSON object per event**. With **`json_batch`**, each request sends **one JSON array** containing a whole pipeline batch (common for Logstash-to-Logstash). `content_type` defaults from `format` (e.g. `application/json` for `json` / `json_batch`).
-> * **Fluent Bit** ([http output](https://docs.fluentbit.io/manual/pipeline/outputs/http)): `Format` is one of `json` (default), `json_lines`, `json_stream`, `msgpack`, or `gelf`. With **`json`**, the body is a **JSON array** of records for a flush chunk. **`json_lines`** is newline-delimited JSON (one object per line). How many records appear in one POST is driven mainly by the engine **chunk** and the global **[SERVICE] `Flush`** interval, not by Logstash’s `json` vs `json_batch` switch.
->
-> Example Fluent Bit pipeline for this repo: [`fluentbit/fluent-bit.yaml`](./fluentbit/fluent-bit.yaml).
-
-#### scapy
-2.5.0 works, 2.6.0 raises an exception
+For a watcher that feeds ELK, Zabbix, Loki or webhooks through Logstash, see [Troubleshooting Logstash](docs/exporters.md#troubleshooting-logstash).
 
 ### Topolograph suite
 * OSPF Watcher [link](https://github.com/Vadims06/ospfwatcher)
@@ -605,4 +304,7 @@ Add your changes in `./logstash/pipeline` file, stop logstash process via CTRL+C
 
 ### License
  GPL-3.0 license
- Elastic search was used with Basic ELK license.  
+
+[Other exports (ELK, Zabbix, Loki, webhooks)](docs/exporters.md)
+
+> Watchers that feed Topolograph are an **Enterprise** feature; Community Topolograph has no watchers. Editions and contact: https://topolograph.com/#editions.

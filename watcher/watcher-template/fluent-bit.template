@@ -1,0 +1,24 @@
+pipeline:
+  inputs:
+  - name: tail
+    tag: onboarding.{{watcher_id_raw}}
+    path: /home/watcher/watcher/logs/{{watcher_folder_name}}.ospf.log
+    db: /fluent-bit/state/{{watcher_id_raw}}.db
+    read_from_head: false
+    refresh_interval: 1
+    rotate_wait: 1
+    storage.type: filesystem
+    mem_buf_limit: 50MB
+    skip_long_lines: on
+  outputs:
+  - name: http
+    match: onboarding.{{watcher_id_raw}}
+    host: {{topolograph_host}}
+    port: {{topolograph_port_number}}
+    uri: /websocket
+    format: json
+    json_date_key: '@timestamp'
+    retry_limit: no_limits
+    storage.total_limit_size: 500M
+    tls: {{topolograph_tls}}
+    header: {{authorization_header}}
