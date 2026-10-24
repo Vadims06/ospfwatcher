@@ -122,7 +122,7 @@ It will create:
 * GRE tunnel in Watcher's namespace
 * NAT settings for GRE traffic
 * FRR & Watcher instance
-* assign XDP OSPF filter on watcher's tap interface
+* attach the announcement filter to gre1 egress in the watcher namespace
 
 6. Start log export to ELK, Zabbix, Loki or webhooks (optionally if you set up ELK)  
 ```

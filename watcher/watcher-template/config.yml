@@ -64,18 +64,25 @@ topology:
               stage: create
     receive_only_filter:
       kind: linux
-      image: vadims06/ospf-filter-xdp:latest
+      image: vadims06/ospf-filter:latest
       startup-delay: 2
-      network-mode: host
-      # one-shot node: it applies the XDP filter and exits, so it must not be restarted
+      # attaches to gre1 egress from inside the FRR namespace, no host access needed
+      network-mode: container:router
+      cap-add:
+        - NET_ADMIN
+        - BPF
+        - PERFMON
+      # one-shot node: it attaches the filter and exits, so it must not be restarted
       restart-policy: "no"
       env:
-        VTAP_HOST_INTERFACE: vhost1025
+        ROUTER_ID: 10.10.25.33
+        TUNNEL_NET: 10.10.25.0
+        TUNNEL_MASK: 255.255.255.0
       stages:
         create:
           wait-for:
             - node: h1
-              stage: create
+              stage: configure
     h2:
       kind: host
       exec:
@@ -83,10 +90,10 @@ topology:
         - ip netns exec watcher3-gre1025-router ip link set up dev gre1
       stages:
         create:
-          # removed from client.py if XDP is disabled
+          # removed from client.py if the announcement filter is disabled
           wait-for:
             - node: receive_only_filter
-              stage: create
+              stage: exit
 
   links:
     - endpoints: ["router:veth1", "host:vhost1025"] # type vtap
