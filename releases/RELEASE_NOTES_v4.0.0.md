@@ -1,47 +1,16 @@
 # OSPF Watcher Release Notes v4.0.0
 
-## Changes
-
 **The watcher is rewritten in Rust**
-The image `vadims06/ospf-watcher` is now one static binary with no Python in it. The event log lines and what Topolograph receives stay the same.
-* `diagnostic` is built in: `sudo onboarding/diagnostic.sh <num>` checks GRE and OSPF hellos from both ends, MTU, stale conntrack entries and the iptables rules on the watcher's path, and prints the command that fixes a wrong rule.
-* Without Topolograph the watcher says once at start that events go to the local log only.
+One small binary with no Python. Events and their format stay the same.
 
 **Install from Topolograph**
-Topolograph Enterprise's Watchers page now installs a watcher in GRE or BGP-LS mode. It
-gives a `configure.sh` that checks the host, builds every watcher of the checkout with
-the image's `render --answers`, and starts `topolograph-ospfwatcher.service`, which
-redeploys the watchers at boot and starts Fluent Bit.
-* Each watcher sends its events with its own token.
-* Images are pinned to the checkout's `VERSION`; `REGISTRY_PREFIX` points them at a mirror.
-* The interactive `client.py` dialog and the Python in the image are gone. Without Topolograph, write an answers file and run `render --answers`, see *Generate configuration files* in `docs/exporters.md`. `print-images` lists the pinned images.
+The Watchers page of Topolograph Enterprise gives one command that installs and starts a watcher in GRE or BGP-LS mode. Without Topolograph, write an answers file, see [docs/exporters.md](../docs/exporters.md).
 
-**Listen-only filter rewritten: XDP replaced by tc-BPF on `gre1` egress**
-The old filter inspected packets on the host end of the veth pair and let some
-foreign prefixes through. The new filter runs on the egress of `gre1` inside the
-watcher's network namespace and passes an LS Update only if every LSA is the
-watcher's own Router LSA with the tunnel network. Drops are counted per reason.
-The filter node no longer needs host networking.
+**Built-in diagnostic**
+`sudo onboarding/diagnostic.sh <num>` checks the GRE adjacency with the network device and prints the command that fixes what it finds.
 
-**Renamed**
-* Image `vadims06/ospf-filter-xdp` is now `vadims06/ospf-filter`.
-* The filter is switched with `is_filter_enabled` in the answers, then `render` again (`client.py --action enable_xdp` / `disable_xdp` are gone).
-* The `--answers` key `enable_xdp` is now `is_filter_enabled`.
-
-**Fail closed, off by default**
-The filter is off by default. With it on, the filter node brings `gre1` up after
-attaching, so if it cannot attach there is no adjacency (fix the cause or set
-`is_filter_enabled` to false and render again). It needs kernel 5.4 or newer; tested on 5.15.
-
-**Known limit**
-The watcher forwards no LSAs of other routers, so a network device that rebooted
-cannot get them from the watcher.
+**Announcement filter**
+tc-BPF replaces XDP. It is off by default; turn it on with `is_filter_enabled`. See [Listen-only mode](../README.md#listen-only-mode-announcement-filter-in-action).
 
 ## Upgrade
-
-A watcher installed by hand moves to the Topolograph install as described in the README, *Moving a watcher installed by hand*.
-
-1. Pull the repository and the `vadims06/ospf-filter` image.
-2. For a watcher with the filter, set `is_filter_enabled` to true in its answers, run `render` again and re-create its lab. This also pins `ospf router-id` in its FRR config.
-
-Every watcher restarts once after the upgrade, because its pinned image version changes. The Python images up to `v3.2.0` stay on Docker Hub.
+Run `configure.sh` again with the command from the watcher page. Every watcher restarts once. A watcher installed by hand: see *Moving a watcher installed by hand* in the README.
