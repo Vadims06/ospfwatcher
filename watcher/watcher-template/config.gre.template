@@ -1,0 +1,129 @@
+name: {{watcher_folder_name}}
+prefix: __lab-name
+
+topology:
+  defaults:
+    labels:
+      gre_tunnel_number: {{gre_tunnel_number}}
+      gre_tunnel_network_device_ip: {{gre_tunnel_network_device_ip}}
+      gre_tunnel_ip_w_mask_network_device: {{gre_tunnel_ip_w_mask_network_device}}
+      gre_tunnel_ip_w_mask_watcher: {{gre_tunnel_ip_w_mask_watcher}}
+      host_interface_device_ip: {{host_interface_device_ip}}
+      ospf_area_num: {{area_num}}
+      asn: {{asn}}
+      organisation_name: {{organisation_name}}
+      watcher_name: {{watcher_name}}
+      host_veth: {{host_veth}}
+      watcher_id: {{watcher_id}}
+    env-files:
+    - ../../.env
+  nodes:
+    ospf-watcher:
+      kind: linux
+      image: {{image_watcher}}
+      network-mode: container:router
+      startup-delay: 10
+      env:
+        ASN: {{asn}}
+        WATCHER_NAME: {{watcher_name}}
+        AREA_NUM: {{area_num}}
+        WATCHER_INTERFACE: veth1
+        WATCHER_LOGFILE: /home/watcher/watcher/logs/watcher.log
+{{#server}}
+        TOPOLOGRAPH_HOST: {{topolograph_host}}
+        TOPOLOGRAPH_PORT: {{topolograph_port}}
+        TOPOLOGRAPH_API_TOKEN: {{watcher_token}}
+{{/server}}
+      binds:
+        # For crash dump logs if any
+      - ../logs/:/home/watcher/watcher/logs/
+      - ../logs/{{watcher_folder_name}}.ospf.log:/home/watcher/watcher/logs/watcher.log
+      stages:
+        create:
+          wait-for:
+{{#filter}}
+          - node: receive_only_filter
+            stage: exit
+{{/filter}}
+{{^filter}}
+          - node: h2
+            stage: create
+{{/filter}}
+    logrotation:
+      kind: linux
+      # https://github.com/Vadims06/docker-logrotate
+      image: {{image_logrotation}}
+      env:
+        LOGROTATE_FILE_PATTERN: '*.log'
+        # don't rotate at all but truncate log, because only single log file is bind to this container
+        LOGROTATE_ROTATE: '0'
+        LOGROTATE_SIZE: 500M
+        # once a day
+        LOGROTATE_CRON: 0 0 * * *
+      binds:
+      - ../logs/{{watcher_folder_name}}.ospf.log:/logs/watcher.log
+    router:
+      kind: linux
+      image: {{image_router}}
+      binds:
+      - router/daemons:/etc/frr/daemons
+      - router/frr.conf:/etc/frr/frr.conf
+      - router/vtysh.conf:/etc/frr/vtysh.conf
+    h1:
+      kind: host
+      startup-delay: 1
+      exec:
+        # assign addresses on p2p link b/w namespace and host
+      - ip netns exec {{watcher_folder_name}}-router ip address add {{p2p_watcher_ip_w_mask}} dev veth1
+      - ip netns exec {{watcher_folder_name}}-router ip route add {{gre_tunnel_network_device_ip}} via {{p2p_host_ip}}
+      - ip address add {{p2p_host_ip_w_mask}} dev {{host_veth}}
+      - ip netns exec {{watcher_folder_name}}-router ip tunnel add gre1 mode gre local {{p2p_watcher_ip}} remote {{gre_tunnel_network_device_ip}} ttl 100
+      - ip netns exec {{watcher_folder_name}}-router ip address add {{gre_tunnel_ip_w_mask_watcher}} dev gre1
+      - bash -c 'RULE="-t nat -p gre -m comment --comment topolograph-ospfwatcher-{{watcher_folder_name}} -s {{p2p_watcher_ip}} -d {{gre_tunnel_network_device_ip}} -j SNAT --to-source {{host_interface_device_ip}}"; sudo iptables -C POSTROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A POSTROUTING $$RULE'
+      - bash -c 'RULE="-t nat -p gre -m comment --comment topolograph-ospfwatcher-{{watcher_folder_name}} -s {{gre_tunnel_network_device_ip}} -d {{host_interface_device_ip}} -j DNAT --to-destination {{p2p_watcher_ip}}"; sudo iptables -C PREROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A PREROUTING $$RULE'
+      - bash -c 'RULE="-t filter -p gre -m comment --comment topolograph-ospfwatcher-{{watcher_folder_name}} -s {{p2p_watcher_ip}} -d {{gre_tunnel_network_device_ip}} -i {{host_veth}} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE'
+      - bash -c 'RULE="-t filter -p gre -m comment --comment topolograph-ospfwatcher-{{watcher_folder_name}} -s {{gre_tunnel_network_device_ip}} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE'
+      - sudo ip netns exec {{watcher_folder_name}}-router ip link set mtu 1476 dev gre1
+      - sudo ip netns exec {{watcher_folder_name}}-router ip link set mtu 1500 dev veth1
+      - sudo ip link set mtu 1500 dev {{host_veth}}
+      - sudo conntrack -D --dst {{gre_tunnel_network_device_ip}} -p 47
+      - sudo conntrack -D --src {{gre_tunnel_network_device_ip}} -p 47
+      stages:
+        create:
+          wait-for:
+          - node: router
+            stage: create
+{{#filter}}
+    receive_only_filter:
+      kind: linux
+      image: {{image_filter}}
+      startup-delay: 2
+      # attaches to gre1 egress from inside the FRR namespace and then brings gre1 up
+      network-mode: container:router
+      # one-shot node: it attaches the filter and exits, so it must not be restarted
+      restart-policy: no
+      env:
+        ROUTER_ID: {{router_id}}
+        TUNNEL_NETWORK: {{tunnel_network}}
+        TUNNEL_PREFIX_LEN: '{{tunnel_prefix_len}}'
+      stages:
+        create:
+          wait-for:
+          - node: h1
+            stage: configure
+{{/filter}}
+{{^filter}}
+    h2:
+      kind: host
+      exec:
+      - sudo ip netns exec {{watcher_folder_name}}-router ip link set up dev gre1
+      stages:
+        create:
+          wait-for:
+          - node: h1
+            stage: configure
+{{/filter}}
+  links:
+  - endpoints:
+    - router:veth1
+    - host:{{host_veth}}

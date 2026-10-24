@@ -43,19 +43,31 @@ services:
      - ospf-logstash-index-creator
   
   ospf-logstash-index-creator:
-    image: ${REGISTRY_PREFIX:-}vadims06/ospf-watcher:${WATCHER_VERSION:-v3.4.0}
+    image: ${REGISTRY_PREFIX:-}curlimages/curl:8.11.1
     container_name: ospf-logstash-index-creator
     volumes:
       - type: bind
-        source: ./logstash/index_template/create.py
-        target: /home/watcher/watcher/create.py
+        source: ./logstash/index_template
+        target: /templates
         read_only: true
     environment:
+      EXPORT_TO_ELASTICSEARCH_BOOL: ${EXPORT_TO_ELASTICSEARCH_BOOL:-False}
       ELASTIC_USER_LOGIN: $ELASTIC_USER_LOGIN
       ELASTIC_USER_PASS: $ELASTIC_USER_PASS
       ELASTIC_IP: $ELASTIC_IP
       ELASTIC_PORT: $ELASTIC_PORT
-    entrypoint: ["python", "create.py"]
+    entrypoint:
+      - sh
+      - -c
+      - |
+        [ "$$EXPORT_TO_ELASTICSEARCH_BOOL" != False ] || { echo "ELK is disable"; exit 0; }
+        status=0
+        for template in /templates/*.json; do
+          curl --fail-with-body --show-error --silent -u "$${ELASTIC_USER_LOGIN:-elastic}:$${ELASTIC_USER_PASS:-changeme}" -H 'Content-Type: application/json' \
+            -X PUT --data-binary "@$$template" "http://$${ELASTIC_IP:-172.25.80.1}:$${ELASTIC_PORT:-9200}/_index_template/$$(basename "$$template" .json)" || status=1
+          echo
+        done
+        exit $$status
 
   fluent-bit:
     image: ${REGISTRY_PREFIX:-}fluent/fluent-bit:3.2

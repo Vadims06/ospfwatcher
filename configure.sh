@@ -218,13 +218,13 @@ registry_prefix=$(grep "^REGISTRY_PREFIX=" .env | cut -d= -f2- || true)
 image="${registry_prefix}vadims06/ospf-watcher:${version}"
 
 docker image inspect "$image" >/dev/null 2>&1 || docker pull "$image"
-run_client() {
+run_image() {
     docker run --rm --user 0:0 -e REGISTRY_PREFIX="$registry_prefix" \
         -v "$checkout":/home/watcher/watcher -w /home/watcher/watcher \
-        --entrypoint python3 "$image" client.py "$@"
+        "$image" "$@"
 }
 # Every image is local before the running watchers go, so a missing one stops nothing
-run_client --action print_images | while read -r pinned; do
+run_image print-images | while read -r pinned; do
     docker image inspect "$pinned" >/dev/null 2>&1 || docker pull "$pinned"
 done
 docker compose --profile fluent-bit pull --quiet fluent-bit
@@ -242,7 +242,7 @@ done
 
 # A watcher whose build is unchanged gets its own folder back, so the same inode marks it to keep running
 failed=0
-run_client --action add_watcher --answers "$answers_dir/0.json" || failed=1
+run_image render --answers "$answers_dir/0.json" || failed=1
 # A topology left running would keep its interfaces and ports after its folder changes;
 # stop.sh also removes the GRE rules containerlab destroy leaves, the deploy adds the current ones back
 unstopped=()
