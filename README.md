@@ -99,7 +99,7 @@ To remove every watcher of the host: `sudo systemctl disable --now topolograph-o
 OSPF Watcher supports two connection modes:
 
 #### GRE Mode (Traditional)
-The FRR container is isolated in an individual network namespace and establishes an OSPF adjacency over a GRE tunnel with a network device. The **XDP OSPF filter** inspects all outgoing OSPF advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, OSPF Database description (DB) or LSUpdate will be dropped. It prevents the network from populating by unexpected network prefixes.
+The FRR container is isolated in an individual network namespace and establishes an OSPF adjacency over a GRE tunnel with a network device. The **announcement filter** (a tc-BPF program on the egress of `gre1`) inspects every OSPF packet the watcher sends. An LS Update passes only if it carries the watcher's own Router LSA with the tunnel network and nothing else; anything else is dropped. It prevents the network from populating by unexpected network prefixes.
 
 #### BGP-LS Mode
 The watcher connects to a network router via BGP-LS (BGP Link-State) protocol. The router must be configured to advertise OSPF topology information via BGP-LS. The watcher uses GoBGP (bgplswatcher) to establish a BGP session and receive BGP-LS updates, which are then processed by the OSPF watcher component. This mode eliminates the need for GRE tunnels and OSPF adjacencies, making it easier to deploy in environments where GRE tunnels are not feasible.
@@ -183,37 +183,47 @@ router bgp <router-as>
 Check OSPF neighbor, if there is no OSPF adjacency between network device and OSPF Watcher, check troubleshooting `OSPF Watcher <-> Network device connection` section below (to run diagnostic script).
 
 
-### Listen-only mode. XDP in action.
-If for some reason an extra network is advertised from Watcher, this announcement will be dropped.  
-Lab schema: there are two wireshark sessions on the interfaces before (on the left side) and after (on the right side) XDP filter. 
-![](./docs/FRR_Watcher_Wireshark.png)  
-This examples shows that `8.8.8.8` prefix was redistributed on Watcher and added into its announcement, but it was dropped by XDP and eventually didn't reach the network.
-![](./docs/lsa5_drop_highlighted.png)  
-The same logic is applied on Database Description messages
-![](./docs/lsa5_drop_db_description_highlighted.png) 
-and for extra stub networks in LSA1 Update
-![](./docs/lsa1_two_stub_networks_drop_highlighed.png) 
-To check XDP logs, run
-```
-sudo cat /sys/kernel/debug/tracing/trace_pipe
-```
-To check whether XDP filter is assigned on the interface, run
-```
-ubuntu20:~/ospfwatcher$ ip l show dev ospf1-gre1025
-178: ospf1-gre1025@if177: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 xdp qdisc noqueue state UP mode DEFAULT group default
-    link/ether aa:c1:ab:e3:cb:d9 brd ff:ff:ff:ff:ff:ff link-netnsid 0
-    prog/xdp id 153 <-- !!!
-```
-Demo video
-[![OSPF Deep packet inspection using XDP](./docs/logo_ospfwatcher_xdp_512_512.png)](https://www.youtube.com/watch?v=mC4PVD5hrRU)
+### Listen-only mode. Announcement filter in action.
+The watcher must only listen. A tc-BPF program on the egress of `gre1` inside the watcher's network namespace drops everything the watcher's FRR sends except its own minimal Router LSA.
 
-To enable/disable XDP
+| OSPF packet | Verdict |
+|---|---|
+| Hello, LS Request, LS Ack, Database Description, non-OSPF | pass |
+| LS Update | pass only if every LSA is the watcher's own Router LSA: no V/E/B flags, at most one point-to-point link, stub links only for the GRE tunnel network |
+| Any other LS Update (other LSA types, other routers' LSAs, transit or virtual links, foreign stubs, truncated or fragmented packets) | drop |
+
+Lab schema: there are two wireshark sessions on the interfaces before (on the left side) and after (on the right side) the filter.
+![](./docs/FRR_Watcher_Wireshark.png)  
+This example shows that `8.8.8.8` prefix was redistributed on Watcher and added into its announcement, but it was dropped by the filter and eventually didn't reach the network.
+![](./docs/lsa5_drop_highlighted.png)  
+The same logic is applied to extra stub networks in LSA1 Update
+![](./docs/lsa1_two_stub_networks_drop_highlighed.png) 
+
+To check whether the filter is attached, run
 ```
-sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:latest python3 ./client.py --action enable_xdp --watcher_num <num>
+sudo ip netns exec <netns> tc filter show dev gre1 egress
+filter protocol all pref 49152 bpf chain 0 handle 0x1 announcement_filter.o:[tc] direct-action not_in_hw id 13746 ... jited
 ```
-##### Support
-Currently XDP was tested on Ubuntu 18,20 Kernel 5.4.0-204-generic.
-If you faced with XDP errors - skip it while generating config file or use `--action disable_xdp` as it mentioned in the example above.
+`<netns>` is the watcher router's network namespace, e.g. `clab-watcher1-gre1025-ospf-router`; `sudo ip netns list` shows it.
+
+Drop counters, one per reason, are in an array map of the attached program. Use the `id` from the output above:
+```
+sudo bpftool prog show id <id>                # map_ids <map id>
+sudo bpftool map dump id <map id>             # key = reason, value = dropped packets
+```
+Keys: 0 malformed, 1 fragment, 2 LSA count, 3 LSA type, 4 LSA origin, 5 LSA flags, 6 LSA length, 7 link type, 8 foreign stub, 9 P2P link count.
+
+To enable/disable the filter
+```
+sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/ospf-watcher:latest python3 ./client.py --action enable_filter --watcher_num <num>
+```
+Use `--action disable_filter` to remove it. Re-create the watcher's lab after the change.
+
+##### Known limits
+* The watcher forwards nothing but its own Router LSA, so a network device that rebooted cannot get other routers' LSAs from the watcher. It resynchronises with its other neighbors.
+* Each watcher's router id is pinned in its FRR config (`ospf router-id`, the watcher's GRE tunnel address) and compiled into the filter; `enable_filter` adds it to a watcher created earlier.
+* Tested on kernel 5.15 with `NET_ADMIN`, `BPF` and `PERFMON`. These capabilities exist from kernel 5.8; older kernels would need `SYS_ADMIN` instead (not tested). Containerlab starts the node privileged anyway.
+* If the filter node fails, containerlab still brings `gre1` up unfiltered; check with the command above after starting a watcher.
 
 
 ## Troubleshooting
