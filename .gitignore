@@ -12,4 +12,3 @@ clab-watcher*
 containerlab/ospf01/watcher
 containerlab/ospf01/clab-ospf01/
 .env
-fluentbit/watchers/*.yaml

@@ -1,6 +1,7 @@
 zebra=yes
 bgpd=no
 ospfd=yes
+ospfd_instances=1
 ospf6d=yes
 ripd=no
 ripngd=no
