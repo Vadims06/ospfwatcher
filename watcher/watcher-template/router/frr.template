@@ -7,15 +7,11 @@ ipv6 forwarding
 password zebra
 enable password zebra
 !
-interface {{interface_name}}
-{{#macvlan}}
- ip address {{macvlan_ip_w_mask_watcher}}
-{{/macvlan}}
+interface gre1
  ip ospf network point-to-point
 exit
 !
 router ospf
-ospf router-id {{router_id}}
 capability opaque
 network {{tunnel_subnet_w_digit_mask}} area {{area_num}}
 !

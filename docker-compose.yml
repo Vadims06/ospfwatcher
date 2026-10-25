@@ -31,6 +31,11 @@ services:
       EXPORT_TO_ZABBIX_BOOL: $EXPORT_TO_ZABBIX_BOOL
       EXPORT_TO_WEBHOOK_URL_BOOL: $EXPORT_TO_WEBHOOK_URL_BOOL
       WEBHOOK_URL: $WEBHOOK_URL
+      EXPORT_TO_TOPOLOGRAPH_SOCKET: $EXPORT_TO_TOPOLOGRAPH_SOCKET
+      TOPOLOGRAPH_HOST: $TOPOLOGRAPH_HOST
+      TOPOLOGRAPH_PORT: $TOPOLOGRAPH_PORT
+      TOPOLOGRAPH_WEB_API_USERNAME_EMAIL: ${TOPOLOGRAPH_WEB_API_USERNAME_EMAIL}
+      TOPOLOGRAPH_WEB_API_PASSWORD: ${TOPOLOGRAPH_WEB_API_PASSWORD}
       EXPORT_TO_LOKI_BOOL: $EXPORT_TO_LOKI_BOOL
       LOKI_URL: $LOKI_URL
     healthcheck:
@@ -41,42 +46,30 @@ services:
       start_period: 20s
     depends_on:
      - ospf-logstash-index-creator
+    networks:
+      - topolograph_backend
   
   ospf-logstash-index-creator:
-    image: ${REGISTRY_PREFIX:-}curlimages/curl:8.11.1
+    image: vadims06/ospf-watcher:latest
     container_name: ospf-logstash-index-creator
     volumes:
       - type: bind
-        source: ./logstash/index_template
-        target: /templates
+        source: ./logstash/index_template/create.py
+        target: /home/watcher/watcher/create.py
         read_only: true
     environment:
-      EXPORT_TO_ELASTICSEARCH_BOOL: ${EXPORT_TO_ELASTICSEARCH_BOOL:-False}
       ELASTIC_USER_LOGIN: $ELASTIC_USER_LOGIN
       ELASTIC_USER_PASS: $ELASTIC_USER_PASS
       ELASTIC_IP: $ELASTIC_IP
       ELASTIC_PORT: $ELASTIC_PORT
-    entrypoint:
-      - sh
-      - -c
-      - |
-        [ "$$EXPORT_TO_ELASTICSEARCH_BOOL" != False ] || { echo "ELK is disable"; exit 0; }
-        status=0
-        for template in /templates/*.json; do
-          curl --fail-with-body --show-error --silent -u "$${ELASTIC_USER_LOGIN:-elastic}:$${ELASTIC_USER_PASS:-changeme}" -H 'Content-Type: application/json' \
-            -X PUT --data-binary "@$$template" "http://$${ELASTIC_IP:-172.25.80.1}:$${ELASTIC_PORT:-9200}/_index_template/$$(basename "$$template" .json)" || status=1
-          echo
-        done
-        exit $$status
+    entrypoint: ["python", "create.py"]
+    networks:
+      - topolograph_backend
 
   fluent-bit:
-    image: ${REGISTRY_PREFIX:-}fluent/fluent-bit:3.2
+    image: fluent/fluent-bit:3.2
     container_name: ospf-fluent-bit
-    # no Docker network of its own, so none to collide with containerlab\'s
-    network_mode: host
-    # onboarding.yaml when installed from Topolograph's Watchers page
-    command: ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/${FLUENT_BIT_CONFIG:-fluent-bit.yaml}"]
-    restart: unless-stopped
+    command: ["/fluent-bit/bin/fluent-bit", "-c", "/fluent-bit/etc/fluent-bit.yaml"]
     profiles:
       - fluent-bit
     volumes:
@@ -88,14 +81,19 @@ services:
         source: ./watcher/logs
         target: /home/watcher/watcher/logs
         read_only: true
-      - type: volume
-        source: fluent-bit-state
-        target: /fluent-bit/state
     environment:
+      TOPOLOGRAPH_HOST: ${TOPOLOGRAPH_HOST:-localhost}
+      TOPOLOGRAPH_PORT: ${TOPOLOGRAPH_PORT:-8080}
+      TOPOLOGRAPH_WEB_API_USERNAME_EMAIL: ${TOPOLOGRAPH_WEB_API_USERNAME_EMAIL}
+      TOPOLOGRAPH_WEB_API_PASSWORD: ${TOPOLOGRAPH_WEB_API_PASSWORD}
       WEBHOOK_HOST: ${WEBHOOK_HOST:-localhost}
       WEBHOOK_PORT: ${WEBHOOK_PORT:-9090}
       WEBHOOK_URI: ${WEBHOOK_URI:-/}
       WEBHOOK_TLS_ON: ${WEBHOOK_TLS_ON:-off}
+    networks:
+      - topolograph_backend
 
-volumes:
-  fluent-bit-state:
+networks:
+  topolograph_backend:
+    external: true
+    name: topolograph_backend
