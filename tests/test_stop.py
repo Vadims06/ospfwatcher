@@ -120,3 +120,27 @@ def test_stop_of_one_watcher_leaves_the_other(tmp_path, has_containers):
     ]
     assert (tmp_path / "iptables").read_text().splitlines() == [
         line for rule in rules for line in (f"-w -C {rule}", f"-w -D {rule}")]
+
+
+def test_stop_of_a_macvlan_watcher_only_destroys_its_lab(tmp_path):
+    (tmp_path / "onboarding").mkdir()
+    shutil.copy(REPO_ROOT / "onboarding" / "stop.sh", tmp_path / "onboarding" / "stop.sh")
+    bin_path = tmp_path / "bin"
+    bin_path.mkdir()
+    fakes = {**FAKE_COMMANDS,
+             "containerlab": 'echo "$*" >> "$LOG_DIR/containerlab"; exit 0',
+             "docker": "echo abc123; exit 0",
+             "ip": 'echo "$*" >> "$LOG_DIR/ip"; exit 0'}
+    for name, fake_body in fakes.items():
+        (bin_path / name).write_text(f"#!/bin/sh\n{fake_body}\n")
+        (bin_path / name).chmod(0o755)
+    config = tmp_path / "config.yml"
+    config.write_text("name: watcher1-mv-ens192-100-ospf\n")
+    environment = {**os.environ, "PATH": f"{bin_path}:{os.environ['PATH']}", "LOG_DIR": str(tmp_path)}
+
+    result = subprocess.run(["bash", str(tmp_path / "onboarding" / "stop.sh"), str(config)], env=environment)
+
+    assert result.returncode == 0
+    assert (tmp_path / "containerlab").read_text().splitlines() == [f"destroy -t {config}"]
+    # The parent interface belongs to the host: nothing may delete it, and no GRE flow exists to clean
+    assert not (tmp_path / "ip").exists() and not (tmp_path / "iptables").exists() and not (tmp_path / "conntrack").exists()
