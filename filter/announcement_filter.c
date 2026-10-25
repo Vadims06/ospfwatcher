@@ -1,5 +1,6 @@
 #include <linux/bpf.h>
 #include <linux/pkt_cls.h>
+#include <linux/if_ether.h>
 #include <linux/ip.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
@@ -63,7 +64,7 @@ static __always_inline int drop(enum drop_reason reason)
     return TC_ACT_SHOT;
 }
 
-/* Offsets are relative to the IPv4 header: gre1 egress has no L2 header. */
+/* Offsets are relative to the IPv4 header on gre1 and on macvlan egress alike. */
 static __always_inline int load(struct __sk_buff *skb, __u32 offset, void *to, __u32 len)
 {
     return bpf_skb_load_bytes_relative(skb, offset, to, len, BPF_HDR_START_NET);
@@ -152,8 +153,11 @@ int announcement_filter(struct __sk_buff *skb)
     __u32 num_lsas;
     __u32 offset;
 
-    if (load(skb, 0, &ip, sizeof(ip)))
+    /* ARP, IPv6 ND and the like must not be read as an IP header */
+    if (skb->protocol != bpf_htons(ETH_P_IP))
         return TC_ACT_OK;
+    if (load(skb, 0, &ip, sizeof(ip)))
+        return drop(DROP_MALFORMED);
     if (ip.protocol != IPPROTO_OSPF)
         return TC_ACT_OK;
 

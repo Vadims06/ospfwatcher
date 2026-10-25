@@ -1,4 +1,6 @@
-"""Runs crafted gre1-egress packets through the compiled filter with bpftool prog run."""
+"""Runs crafted gre1 and macvlan egress packets through the compiled filter with bpftool prog run.
+
+Both start at the IPv4 header, so the OSPF cases are shared; the raw cases cover other protocols on a shared L2."""
 import json
 import os
 import struct
@@ -6,8 +8,8 @@ import subprocess
 import sys
 
 from scapy.all import IP, UDP, Raw, raw
-from scapy.contrib.ospf import (OSPF_DBDesc, OSPF_Hdr, OSPF_Hello, OSPF_Link, OSPF_LSA_Hdr,
-                                OSPF_LSAck, OSPF_LSUpd, OSPF_Network_LSA, OSPF_Router_LSA)
+from scapy.contrib.ospf import (OSPF_DBDesc, OSPF_External_LSA, OSPF_Hdr, OSPF_Hello, OSPF_Link, OSPF_LSA_Hdr,
+                                OSPF_LSAck, OSPF_LSUpd, OSPF_Network_LSA, OSPF_Router_LSA, OSPF_SummaryIP_LSA)
 
 WATCHER = "10.10.25.33"
 DEVICE = "10.10.25.32"
@@ -26,6 +28,7 @@ def router_lsa(links, adv=WATCHER, flags=0, lsa_id=None):
 P2P = OSPF_Link(type=1, id=DEVICE, data=WATCHER, metric=10)
 STUB = OSPF_Link(type=3, id=TUNNEL_NET, data=TUNNEL_MASK, metric=10)
 FOREIGN_STUB = OSPF_Link(type=3, id="8.8.8.8", data="255.255.255.255", metric=1)
+DEFAULT_STUB = OSPF_Link(type=3, id="0.0.0.0", data="0.0.0.0", metric=1)
 TRANSIT = OSPF_Link(type=2, id=DEVICE, data=WATCHER, metric=10)
 VIRTUAL = OSPF_Link(type=4, id=DEVICE, data=WATCHER, metric=10)
 
@@ -79,6 +82,16 @@ CASES = [
     ("num_lsas 1000", lsu_with_num_lsas(1000), DROP, "LSA_COUNT"),
     ("LSU cut in the middle of a link", truncated(lsu([router_lsa([P2P, STUB])]), 8), DROP, "MALFORMED"),
     ("LSU fragment", raw(lsu([router_lsa([P2P, STUB])], flags="MF")), DROP, "FRAGMENT"),
+    ("default route as a stub link of the own Router LSA", raw(lsu([router_lsa([P2P, STUB, DEFAULT_STUB])])), DROP, "FOREIGN_STUB"),
+    ("default-information originate: type-5 0.0.0.0/0 of the watcher",
+     raw(lsu([OSPF_External_LSA(id="0.0.0.0", adrouter=WATCHER, mask="0.0.0.0", metric=1, fwdaddr="0.0.0.0")])), DROP, "LSA_TYPE"),
+    ("own Router LSA followed by type-5 0.0.0.0/0",
+     raw(lsu([router_lsa([P2P, STUB]), OSPF_External_LSA(id="0.0.0.0", adrouter=WATCHER, mask="0.0.0.0", metric=1, fwdaddr="0.0.0.0")])), DROP, "LSA_TYPE"),
+    ("redistributed type-5 8.8.8.8/32 of the watcher",
+     raw(lsu([OSPF_External_LSA(id="8.8.8.8", adrouter=WATCHER, mask="255.255.255.255", metric=1, fwdaddr="0.0.0.0")])), DROP, "LSA_TYPE"),
+    ("summary LSA 0.0.0.0/0 of the watcher",
+     raw(lsu([OSPF_SummaryIP_LSA(id="0.0.0.0", adrouter=WATCHER, mask="0.0.0.0", metric=1)])), DROP, "LSA_TYPE"),
+    ("IP header shorter than 20 bytes (ihl 4)", b"\x44" + raw(lsu([router_lsa([P2P, STUB])]))[1:], DROP, "MALFORMED"),
     ("Hello", raw(ospf_packet(OSPF_Hello(mask=TUNNEL_MASK))), PASS, None),
     ("LS Ack", raw(ospf_packet(OSPF_LSAck(lsaheaders=[OSPF_LSA_Hdr(type=1, id=OTHER_ROUTER, adrouter=OTHER_ROUTER)]))), PASS, None),
     ("DD with two LSA headers (resync)",
@@ -86,6 +99,18 @@ CASES = [
          OSPF_LSA_Hdr(type=1, id=WATCHER, adrouter=WATCHER),
          OSPF_LSA_Hdr(type=1, id=OTHER_ROUTER, adrouter=OTHER_ROUTER)]))), PASS, None),
     ("non-OSPF UDP", raw(IP(src=WATCHER, dst=DEVICE) / UDP() / Raw(b"x" * 40)), PASS, None),
+]
+
+
+IPV4_ETHERTYPE, ARP_ETHERTYPE, IPV6_ETHERTYPE = 0x0800, 0x0806, 0x86dd
+ARP_READ_AS_OSPF = bytes.fromhex("0001080006040001") + b"\x00\x59" + bytes(30)  # byte 9 reads as IP protocol 89
+
+# name, ethertype, bytes after the Ethernet header, expected verdict, expected drop reason
+OTHER_CASES = [
+    ("ARP whose byte 9 reads as protocol 89", ARP_ETHERTYPE, ARP_READ_AS_OSPF, PASS, None),
+    ("ARP request", ARP_ETHERTYPE, bytes.fromhex("0001080006040001") + bytes(20), PASS, None),
+    ("IPv6 neighbour solicitation", IPV6_ETHERTYPE, bytes.fromhex("6000000000203aff") + bytes(32), PASS, None),
+    ("IS-IS over LLC, 802.3 length", 70, bytes.fromhex("fefe03831b0100140100") + bytes(40), PASS, None),
 ]
 
 
@@ -111,9 +136,11 @@ def read_counters(map_id):
 
 def main():
     prog_id, map_id = attach_with_entrypoint()
-    ethernet_header = bytes(6) + bytes(6) + b"\x08\x00"  # test run requires L2; the filter reads from the IP header, as on gre1 egress
+    # test run requires L2; the filter reads from the IP header, as on gre1 and macvlan egress
+    cases = [(name, IPV4_ETHERTYPE, packet, verdict, reason) for name, packet, verdict, reason in CASES] + OTHER_CASES
     failures = 0
-    for name, packet, expected_verdict, expected_reason in CASES:
+    for name, ethertype, packet, expected_verdict, expected_reason in cases:
+        ethernet_header = bytes(6) + bytes(6) + struct.pack(">H", ethertype)
         before = read_counters(map_id)
         with open("/tmp/case.bin", "wb") as case_file:
             case_file.write(ethernet_header + packet)
