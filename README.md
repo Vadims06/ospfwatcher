@@ -25,7 +25,7 @@ OSPF Watcher is a monitoring tool of OSPF topology changes for network engineers
 ![Link cost change highlighted on the graph](docs/ui/cost-change-on-graph.png)
 
 ## Quick start
-1. Enterprise: in Topolograph open **Add → Watcher**, choose the type (OSPF Watcher) and the mode (GRE or BGP-LS) and fill in the form. The wizard issues a watcher token and shows one install command.
+1. Enterprise: in Topolograph open **Add → Watcher**, choose the type (OSPF Watcher) and the mode (GRE, Macvlan or BGP-LS) and fill in the form. The wizard issues a watcher token and shows one install command.
 
     ![Add watcher: choose type and mode](docs/ui/watcher-mode.png)
 
@@ -96,10 +96,20 @@ To remove every watcher of the host: `sudo systemctl disable --now topolograph-o
 
 ### Connection Modes
 
-OSPF Watcher supports two connection modes:
+OSPF Watcher supports three connection modes:
 
 #### GRE Mode (Traditional)
 The FRR container is isolated in an individual network namespace and establishes an OSPF adjacency over a GRE tunnel with a network device. The **announcement filter** (a tc-BPF program on the egress of `gre1`) inspects every OSPF packet the watcher sends. An LS Update passes only if it carries the watcher's own Router LSA with the tunnel network and nothing else; anything else is dropped. It prevents the network from populating by unexpected network prefixes.
+
+#### Macvlan Mode
+The watcher's FRR gets a macvlan interface (`eth1`, private mode) on a host network interface, physical or a VLAN subinterface such as `ens192.100`, and forms an OSPF adjacency directly with the network device on that L2 segment. There is no GRE tunnel, no iptables and no NAT. The announcement filter is always attached to `eth1` egress and passes only the watcher's own Router LSA; `eth1` is held down until the filter is attached, so a failed filter means no adjacency.
+
+Limits:
+* The router needs L2 reachability to the host interface (access port or VLAN) and point-to-point OSPF on its side, with the same MTU.
+* The switch port must accept the watcher's extra MAC address: with port security, allow it; on a virtual switch allow MAC changes and forged transmits. Public clouds usually do not.
+* One watcher per host interface.
+* `onboarding/diagnostic.sh` covers GRE mode only.
+* `onboarding/stop.sh` and `containerlab destroy` remove the macvlan interface only; the host interface stays.
 
 #### BGP-LS Mode
 The watcher connects to a network router via BGP-LS (BGP Link-State) protocol. The router must be configured to advertise OSPF topology information via BGP-LS. The watcher uses GoBGP (bgplswatcher) to establish a BGP session and receive BGP-LS updates, which are then processed by the OSPF watcher component. This mode eliminates the need for GRE tunnels and OSPF adjacencies, making it easier to deploy in environments where GRE tunnels are not feasible.

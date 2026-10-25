@@ -29,6 +29,23 @@
       ]
     },
     {
+      "id": "macvlan",
+      "title": "Macvlan",
+      "description": "The watcher gets a macvlan interface on a host network interface and forms an OSPF adjacency directly with a network device on the same L2 segment. No tunnel. The announcement filter is always on and passes only the watcher's own announcement.",
+      "router_requirements": [
+        "L2 segment (access port or VLAN) from the router to the watcher host network interface",
+        "The switch port accepts the watcher's extra MAC address (port security off or allowing it; on a virtual switch allow MAC changes and forged transmits)",
+        "OSPF on the segment, point-to-point network type",
+        "The same MTU on both ends"
+      ],
+      "router_examples": [
+        {
+          "vendor": "Cisco IOS-XR",
+          "config": "interface <interface-to-watcher-segment>\n ipv4 address <address in the subnet of {macvlan_ip_w_mask_watcher}>\n!\nrouter ospf 1\n area {ospf_area_num}\n  interface <interface-to-watcher-segment>\n   network point-to-point"
+        }
+      ]
+    },
+    {
       "id": "bgpls",
       "title": "BGP-LS",
       "description": "The router exports its OSPF database over a BGP-LS session to the watcher. No tunnel and no OSPF adjacency with the network.",
@@ -144,6 +161,28 @@
       "source": "user",
       "modes": [
         "gre"
+      ]
+    },
+    {
+      "id": "macvlan_parent_interface",
+      "label": "Host interface the watcher attaches to, physical or VLAN subinterface",
+      "diagram_label": "1",
+      "type": "string",
+      "source": "user",
+      "pattern": "^[A-Za-z0-9._-]{1,15}$",
+      "help": "An existing interface of the watcher host, for example ens192 or ens192.100. One watcher per interface.",
+      "modes": [
+        "macvlan"
+      ]
+    },
+    {
+      "id": "macvlan_ip_w_mask_watcher",
+      "label": "Watcher IP on the segment, with mask",
+      "diagram_label": "2",
+      "type": "ip_interface",
+      "source": "user",
+      "modes": [
+        "macvlan"
       ]
     },
     {

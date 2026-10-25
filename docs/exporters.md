@@ -103,6 +103,21 @@ GRE mode, with the explanation of each field (JSON has no comments, so they foll
   }
 }
 ```
+Macvlan mode:
+```json
+{
+  "watcher_id": "lab3",
+  "name": "ospf-lab-3",
+  "connection_mode": "macvlan",
+  "answers": {
+    "macvlan_parent_interface": "ens192.100",
+    "macvlan_ip_w_mask_watcher": "10.20.30.2/24",
+    "ospf_area_num": "0",
+    "organisation_name": "my-org",
+    "asn": "65001"
+  }
+}
+```
 BGP-LS mode:
 ```json
 {
@@ -123,10 +138,11 @@ BGP-LS mode:
 ```
 * `watcher_id` - any unique id you choose: 1 to 64 letters, digits, `.`, `_` or `-`. A watcher is found again by it, so keep it when you change the answers.
 * `name` - the watcher's name in messages and log lines.
-* `connection_mode` - `gre` or `bgpls`.
+* `connection_mode` - `gre`, `macvlan` or `bgpls`.
 * `gre_tunnel_network_device_ip` - the router's own IPv4 address the GRE tunnel ends on; `host_interface_device_ip` - this host's IPv4 address the router sends GRE to. They must differ.
 * `gre_tunnel_ip_w_mask_network_device` and `gre_tunnel_ip_w_mask_watcher` - the two tunnel addresses with their mask; they must be in one network and differ from each other and from the two outer addresses.
 * `gre_tunnel_number` - a number from 1 to 65535 that names the host-side interface (`ospf<watcher number>-gre<tunnel number>`, at most 15 characters).
+* `macvlan_parent_interface` - an existing host interface (at most 15 characters of letters, digits, `.`, `_`, `-`), such as `ens192` or `ens192.100`; one watcher per interface. `macvlan_ip_w_mask_watcher` - the watcher's IPv4 address with the mask of the segment.
 * `ospf_area_num` - the area, a number or dotted form such as `0` or `63.0.0.0`.
 * `is_filter_enabled` - `true` attaches the announcement filter, `false` leaves the tunnel unfiltered. Change it and run `render` again to switch.
 * `bgpls_router_ip`, `bgpls_router_as`, `bgpls_watcher_as`, `bgpls_router_id` - the BGP peer and the watcher's AS and router id; AS numbers are 1 to 4294967295, and different ones make the session eBGP with multihop TTL 255. `bgpls_passive_mode` - `true` waits for the router to connect, and only one passive BGP-LS watcher fits a host (port 179).
