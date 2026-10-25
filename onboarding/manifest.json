@@ -5,7 +5,7 @@
   "install_dir": "/opt/topolograph/ospfwatcher",
   "host_requirements": [
     "Linux host with Docker, Docker Compose v2 and containerlab",
-    "git, curl and systemd; iptables and conntrack for GRE",
+    "git, curl and systemd",
     "sudo",
     "Access to Topolograph over HTTP(S)"
   ],
@@ -13,6 +13,9 @@
     {
       "id": "gre",
       "title": "GRE",
+      "host_requirements": [
+        "iptables and conntrack"
+      ],
       "description": "The watcher forms an OSPF adjacency with one network device over a GRE tunnel and only listens: an announcement filter drops anything it would advertise beyond the tunnel network.",
       "router_requirements": [
         "GRE tunnel to the watcher host IP",
