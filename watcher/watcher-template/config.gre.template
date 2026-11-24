@@ -1,5 +1,11 @@
 name: {{watcher_folder_name}}
 prefix: __lab-name
+# Own mgmt network with a free subnet chosen by Docker: the containerlab default
+# 172.20.20.0/24 is shared by every lab and overlaps Docker networks on many hosts.
+mgmt:
+  network: {{watcher_folder_name}}-mgmt
+  ipv4-subnet: auto
+  ipv6-subnet: auto
 
 topology:
   defaults:
